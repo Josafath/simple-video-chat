@@ -44,7 +44,7 @@ var room = pathname.slice(-1).pop()
 var sdpConstraints = {};    
 socket.emit('create or join', room);
 
-var constraints = {video: true, audio: false};
+var constraints = {video: true, audio: true};
 
 socket.on('created', function (room){
     console.log('Created room ' + room);

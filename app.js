@@ -12,7 +12,7 @@ const bcrypt = require("bcryptjs");
 require('dotenv').config()
 
 
-const mongoDb = "mongodb+srv://jossa:josafath1234@cluster0.olcxk.mongodb.net/videochatdb?retryWrites=true;";
+const mongoDb = process.env.DB;
 mongoose.connect(mongoDb, { useUnifiedTopology: true, useNewUrlParser: true });
 const db = mongoose.connection;
 db.on("error", console.error.bind(console, "mongo connection error"));
