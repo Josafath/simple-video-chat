@@ -7,6 +7,7 @@ exports.index = (req, res, next) => {
     res.render('index', { title: 'SP. Improving your coding skills.' });
 }
 
+// * --------------- GET requests ONLY -----------------
 exports.login_get = (req,res, next) => {
     res.render('login',{title: "Login"})
 }
@@ -22,23 +23,14 @@ exports.log_out_get = (req, res, next) => {
 
 exports.home_get = async (req, res,next) => {
   console.log("User --> ",req.user)
-
-  const any_rooms = await Room.count({}).exec();
-  console.log("# of Rooms --> ", any_rooms);
-  
-  if(any_rooms) {
-    Room.deleteMany({}, (err, result) => {
-      if(err) return next(err)
-
-      console.log("Rooms deleted");
-    })
-  }
   res.render('home',{title: "Welcome!"})
 }
 
 exports.join_get = (req,res, next) => {
     res.render('join', {title:"Join the partner meeting"})
 }
+
+// * --------------- POST requests ONLY -----------------
 
 exports.join_post = async (req, res, next) => {
     const room = await Room.findOne({name: req.body.room,}).exec();
