@@ -1,0 +1,150 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('video-chat-app:server');
+var http = require('http');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+const socketIO = require("socket.io")(server);
+const io = socketIO;
+
+io.sockets.on('connection', function (socket){
+  console.log("User Connected");
+  // Handle 'message' messages
+  socket.on('message', function(message, room) {
+	  log('Client said: ', message);
+	  // for a real app, would be room-only (not broadcast)
+	  socket.in(room).emit('message', message, room);
+	});
+
+  // Part of the chat
+  socket.on("chat message", (msg) => {
+    io.emit('chat message', msg)
+  })
+
+  
+
+  socket.on('create or join', function (room) {
+    const clients = io.sockets.adapter.rooms.get(room);
+    const numClients = clients ? clients.size : 0;
+    log('Room --> ',room);
+    log('S --> Room ' + room + ' has ' + numClients + ' client(s)');
+    log('S --> Request to create or join room', room);
+  // First client joining...
+    if (numClients == 0){
+      socket.join(room);
+      socket.emit('created', room, socket.id);
+    } else if (numClients == 1) {
+      io.sockets.in(room).emit('join', room);
+      socket.join(room);
+      socket.emit('joined', room,socket.id);
+      io.sockets.in(room).emit('ready');
+    } else { // max two clients
+      socket.emit('full', room);
+    }
+  });
+  socket.on('ipaddr', function() {
+	  var ifaces = os.networkInterfaces();
+	  for (var dev in ifaces) {
+		ifaces[dev].forEach(function(details) {
+		  if (details.family === 'IPv4' && details.address !== '127.0.0.1') {
+			socket.emit('ipaddr', details.address);
+		  }
+		});
+	  }
+	});
+  socket.on('bye', function(){
+	  console.log('received bye');
+	});
+  function log(){
+    var array = [">>> "];
+    for (var i = 0; i < arguments.length; i++) {
+      array.push(arguments[i]);
+    }
+    socket.emit('log', array);
+  }
+});
+ 
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}

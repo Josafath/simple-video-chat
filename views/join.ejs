@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Welcome</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel="icon" href="/images/favicon.ico"/>
+    <meta name="description" content="Learn with Student Partner to study DS and Algo"/>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <%if (currentUser) { %>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li style="float:right"><a href="/log-out">Log out</a></li>
+          </ul>
+        <div class="container">
+            <div class="text_create_join">
+                <h1>Hi <%= currentUser.name %>!. How are you?</h1>
+                <p>Are you ready to study?</p>
+            </div>
+            <form action="" method="POST">
+                <input type="text" name="room" class="create" autocomplete="off" placeholder="room's name" required=true> <br>
+                <div class="botones1">
+                    <button type="submit" id="create" name="create" class="btn btn-primary" value="create">Join Meeting</button>
+                </div>
+            </form>
+        </div>
+    <% } %>
+</body>
+</html>
