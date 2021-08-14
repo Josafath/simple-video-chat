@@ -12,7 +12,7 @@ This is the the link to the project:
 https://protected-peak-11732.herokuapp.com/
 
 If you wanna use this projects you will have to have this little things in mind.
-
+## Setup
 _In file main.js of the public dir you could see in line 37 the servers line, to use this software you have to follow this steps:_
 - Go to https://xirsys.com/
 - Sign up/Log in
@@ -21,6 +21,7 @@ _In file main.js of the public dir you could see in line 37 the servers line, to
 - Copy the object and paste in line 37.
 - Note: If you have another way to write something that works, send me your code. haha
 
+- Don't forget _npm install_
 
 # Preview
 ### Menu
