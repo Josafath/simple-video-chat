@@ -1,36 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel='stylesheet' href='/stylesheets/style_video_chat.css' />
     <link rel="icon" href="/images/favicon.ico"/>
     <meta name="description" content="Learn with Student Partner to study DS and Algo"/>
     <meta charset="UTF-8">
     <title><%= title %></title>
 </head>
 <body>
-    <div class="content-container">
-        <div class="active-users-panel" id="active-user-container">
-            <div class="controls">
-                <button id="hangup">
-                    <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"viewBox="0 0 497.88 497.88" style="enable-background:new 0 0 497.88 497.88;" xml:space="preserve">
-                        <path style="fill:#F44336;" d="M491.59,237.036c-70.08-53.44-153.984-81.696-242.656-81.696S76.358,183.596,6.278,237.036c-3.36,2.56-5.6,6.368-6.144,10.592s0.576,8.48,3.136,11.84l58.56,76.768c2.592,3.392,6.368,5.6,10.592,6.144c4.224,0.608,8.48-0.576,11.84-3.136c24.704-18.912,52.288-33.344,81.92-42.912c8.384-2.72,12.992-11.712,10.304-20.128l-19.648-61.088c59.552-15.168,124.608-15.2,184.192,0l-19.648,61.088c-2.72,8.416,1.92,17.408,10.304,20.128c29.6,9.568,57.152,24,81.92,42.912c2.816,2.112,6.208,3.296,9.728,3.296c0.704,0,1.408-0.064,2.112-0.16c4.224-0.576,8.032-2.752,10.592-6.112l58.56-76.8c2.56-3.36,3.712-7.648,3.136-11.84C497.19,243.404,494.95,239.596,491.59,237.036z"/><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g>
-                    </svg>
-                </button>
-            </div>
-            <h3 class="panel-title">Chat:</h3>
-            <ol id="messages"></ol>
-            <form id="form" action="">
-                <input id="input" autocomplete="off" /><button id="sendButton">Send</button>
-            </form>
-        </div>
+    
         <div class="video-chat-container">
-            <div class="video-container">
-                <video autoplay class="remote-video" id="remote-video" playsinline></video>
-                <video autoplay class="local-video" id="local-video" playsinline></video>
+            <video autoplay class="remote-video" id="remote-video" playsinline></video>
+            <video autoplay class="local-video" id="local-video" playsinline></video>
+        </div>
+        
+        <button id="hangup">
+            <p class="material-icons"> Hangup </p>
+        </button>
+
+        <section>
+    
+            <button class="chat-btn"> 
+                <p class="material-icons"> Chat </p>
+            </button>
+    
+        <div class="chat-popup">
+            <div class="chat-area">
+                <ol id="messages">
+
+                </ol>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="input">
+                <button id="emoji-btn"> &#127773;</button>
+                <button class="submit"> <p class="material-icons"> send</p></button>
             </div>
         </div>
-    </div>
-</body>
+    </section>
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@3.1.1/dist/index.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/javascripts/main.js"></script>
+</body>
 </html>

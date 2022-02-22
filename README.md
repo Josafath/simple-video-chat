@@ -30,11 +30,7 @@ _In file main.js of the public dir you could see in line 37 the servers line, to
 - Don't forget _npm install_
 
 # Preview
-### Menu
-![picture alt](./Previews/Menu.png)
 
-### Video chat in action. 😀
-![picture alt](./Previews/Rooms.png)
 
 
 

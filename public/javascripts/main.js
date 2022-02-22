@@ -1,10 +1,33 @@
 'use strict';
 
 const input = document.getElementById("input");
-const sendButton = document.getElementById("sendButton");
+const sendButton = document.querySelector('.submit');
 var messages = document.getElementById("messages");
+const popup = document.querySelector('.chat-popup');
+const chatArea = document.querySelector('.chat-area');
 var socket = io.connect();
+const chatBtn = document.querySelector('.chat-btn');
 const endCall = document.getElementById("hangup");
+const emojiBtn = document.querySelector('#emoji-btn');
+const picker = new EmojiButton();
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  picker.on('emoji', emoji => {
+    document.querySelector('input').value += emoji;
+  });
+
+  emojiBtn.addEventListener('click', () => {
+    picker.togglePicker(emojiBtn);
+  });
+});        
+
+//   chat button toggler 
+
+chatBtn.addEventListener('click', ()=>{
+  popup.classList.toggle('show');
+})
+
 
 
 sendButton.onclick = (e) => {
@@ -53,9 +76,14 @@ socket.on('created', function (room){
 })
 
 socket.on('chat message', function(msg) {
-    let item = document.createElement('li');
-    item.innerHTML = msg;
-    messages.appendChild(item);
+  let userInput = msg;
+
+  let temp = `<div class="income-msg">
+  <p class="msg">${userInput}</p>
+  </div>`;
+
+  chatArea.insertAdjacentHTML("beforeend", temp);
+  input.value = '';
 });
 
 socket.on('full', function (room){

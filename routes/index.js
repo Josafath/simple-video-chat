@@ -27,7 +27,7 @@ router.get("/home", controller.home_get)
 
 router.post('/home', controller.home_post )
 
-router.get('/home/join', controller.join_get)
+router.get('/home/join', controller.join_get);
 
 router.post('/home/join', controller.join_post);
 
