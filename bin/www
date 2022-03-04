@@ -41,15 +41,15 @@ io.sockets.on('connection', function (socket){
 
   socket.on('create or join', function (room) {
     const clients = io.sockets.adapter.rooms.get(room);
-    const numClients = clients ? clients.size : 0;
+    const numClients = clients ? clients.size : 1;
     log('Room --> ',room);
     log('S --> Room ' + room + ' has ' + numClients + ' client(s)');
     log('S --> Request to create or join room', room);
   // First client joining...
-    if (numClients == 0){
+    if (numClients == 1){
       socket.join(room);
       socket.emit('created', room, socket.id);
-    } else if (numClients == 1) {
+    } else if (numClients == 2) {
       io.sockets.in(room).emit('join', room);
       socket.join(room);
       socket.emit('joined', room,socket.id);

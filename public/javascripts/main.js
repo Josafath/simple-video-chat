@@ -37,6 +37,10 @@ sendButton.onclick = (e) => {
         input.value = '';
     }
 };
+//Sending bye if user closes the window
+window.onbeforeunload = function() {
+  sendMessage('bye', room);
+};
 
 
 let isChannelReady = false;
@@ -48,10 +52,8 @@ let pc;
 // * Event when the user finish the call
 endCall.onclick = (e) => {
   e.preventDefault();
-  if(isInitiator)  {
-    hangup();
-  }
-  window.location.href= "/login";
+  hangup();
+  sendMessage('bye',room);
 }
 
 
@@ -253,10 +255,11 @@ function handleRemoteHangup() {
 }
   
 function stop() {
-    isStarted = false;
-    if(typeof pc.close() === null){
-      window.location.href("/home");
-    }
+  if(pc) {
     pc.close();
     pc = null;
+  }
+  isStarted = false;
+  window.location.href  = '/login';
+  
   }
