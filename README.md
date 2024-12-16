@@ -15,7 +15,7 @@ I try to make this project like if it was a real product.
 This was the hardest project that I made, I've never been in a situation where I could feel many confusion and frustration for not knowing but then everything pays off.
 If someone wants to collaborate of you have some thoughts of how I can improve this, send me an email. :)
 This is the the link to the project:
-https://study-partner.herokuapp.com/
+https://heavenly-mangrove-birthday.glitch.me/
 
 If you wanna use this projects you will have to have this little things in mind.
 ## Setup
