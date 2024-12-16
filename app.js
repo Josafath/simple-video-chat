@@ -12,7 +12,7 @@ const bcrypt = require("bcryptjs");
 require('dotenv').config()
 
 
-const dev_db_url = 'mongodb+srv://jossa:josafath1234@cluster0.olcxk.mongodb.net/music_db?retryWrites=true';
+const dev_db_url = 'mongodb+srv://jossa:josafath1234@cluster0.olcxk.mongodb.net/videochat?retryWrites=true';
 const mongodb =  dev_db_url;
 mongoose.connect(mongodb, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
