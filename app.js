@@ -12,10 +12,11 @@ const bcrypt = require("bcryptjs");
 require('dotenv').config()
 
 
-const mongoDb = process.env.DB;
-mongoose.connect(mongoDb, { useUnifiedTopology: true, useNewUrlParser: true });
+const dev_db_url = 'mongodb+srv://jossa:josafath1234@cluster0.olcxk.mongodb.net/music_db?retryWrites=true';
+const mongodb =  dev_db_url;
+mongoose.connect(mongodb, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
-db.on("error", console.error.bind(console, "mongo connection error"));
+db.on('error', console.error.bind(console, 'MongoDB Error Connection: '));
 
 passport.use(
   new LocalStrategy((username, password, done) => {
