@@ -1,265 +1,208 @@
 'use strict';
 
 const input = document.getElementById("input");
-const sendButton = document.querySelector('.submit');
-var messages = document.getElementById("messages");
+const chatForm = document.querySelector('.input-area');
 const popup = document.querySelector('.chat-popup');
 const chatArea = document.querySelector('.chat-area');
-var socket = io.connect();
 const chatBtn = document.querySelector('.chat-btn');
 const endCall = document.getElementById("hangup");
 const emojiBtn = document.querySelector('#emoji-btn');
-const picker = new EmojiButton();
+const statusText = document.getElementById('call-status');
+const localVideo = document.querySelector('#local-video');
+const remoteVideo = document.querySelector('#remote-video');
+const socket = io();
 
-window.addEventListener('DOMContentLoaded', () => {
+// The server writes the room id in the page, so there is no need to parse the URL.
+const room = document.body.dataset.roomId;
 
+let localStream;
+let pc;
+let iceServers;
+// ICE candidates that arrive before the offer/answer can't be added yet.
+let pendingCandidates = [];
+
+// * ---------------- Chat ----------------
+
+// The emoji picker comes from a CDN; the chat still works if it fails to load.
+if (window.EmojiButton) {
+  const picker = new EmojiButton();
   picker.on('emoji', emoji => {
-    document.querySelector('input').value += emoji;
+    input.value += emoji;
+    input.focus();
   });
-
   emojiBtn.addEventListener('click', () => {
     picker.togglePicker(emojiBtn);
   });
-});        
+} else {
+  emojiBtn.hidden = true;
+}
 
-//   chat button toggler 
-
-chatBtn.addEventListener('click', ()=>{
+//   chat button toggler
+chatBtn.addEventListener('click', () => {
   popup.classList.toggle('show');
-})
+});
 
+// The input is inside a form now, so Enter also sends the message.
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (input.value.trim()) {
+    socket.emit('chat message', input.value);
+    input.value = '';
+  }
+});
 
+socket.on('chat message', (msg) => {
+  const row = document.createElement('div');
+  row.className = msg.from === socket.id ? 'out-msg' : 'income-msg';
+  const bubble = document.createElement('p');
+  bubble.className = 'msg';
+  // textContent never runs HTML. The old code inserted the text as HTML, so
+  // a message like <img src=x onerror=...> ran code on the other computer.
+  bubble.textContent = msg.text;
+  const author = document.createElement('span');
+  author.className = 'author';
+  author.textContent = msg.user;
+  row.append(author, bubble);
+  chatArea.append(row);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  // Open the chat when the other person writes.
+  popup.classList.add('show');
+});
 
-sendButton.onclick = (e) => {
-    e.preventDefault();
-    if(input.value) {
-        socket.emit('chat message', input.value);
-        input.value = '';
-    }
-};
-//Sending bye if user closes the window
-window.onbeforeunload = function() {
-  sendMessage('bye', room);
-};
+// * ---------------- Call status ----------------
 
+function setStatus(text) {
+  statusText.textContent = text;
+}
 
-let isChannelReady = false;
-let isInitiator = false;
-let isStarted = false;
-let localStream, remoteStream;
-let pc;
-
-// * Event when the user finish the call
+// Hang up: tell the other peer, turn off the camera and go back home.
 endCall.onclick = (e) => {
   e.preventDefault();
-  hangup();
-  sendMessage('bye',room);
-}
+  socket.emit('bye');
+  closePeerConnection();
+  if (localStream) localStream.getTracks().forEach(track => track.stop());
+  window.location.href = '/home';
+};
 
+// * ---------------- Signaling ----------------
 
-//Servers using xirsys.com
-// * If you wanna create your own servers please follow the steps in the README.md file
-const pc_config = {'iceServers': [{urls: [ "stun:ws-turn2.xirsys.com" ]}, {username: "A_14mbgEi-X6BDJp5SpZjoyI-EEATonG7DkRbmF2IrFbmTF4rCM_NMjbyD2V8zNSAAAAAGEUAsJqb3NzYQ==",credential: "fa67976c-fac5-11eb-a426-0242ac140004",urls: ["turn:ws-turn2.xirsys.com:80?transport=udp","turn:ws-turn2.xirsys.com:3478?transport=udp","turn:ws-turn2.xirsys.com:80?transport=tcp","turn:ws-turn2.xirsys.com:3478?transport=tcp","turns:ws-turn2.xirsys.com:443?transport=tcp","turns:ws-turn2.xirsys.com:5349?transport=tcp"]}]};
-
-// * Extracting the id of the room from the URL and insert send to the socket
-const url_string = (window.location.href).toLowerCase();
-const url = new URL(url_string);
-let pathname = url["pathname"].split('/');
-var room = pathname.slice(-1).pop()
-var sdpConstraints = {};    
-socket.emit('create or join', room);
-
-var constraints = {video: true, audio: true};
-
-socket.on('created', function (room){
-    console.log('Created room ' + room);
-    isInitiator = true;
-    console.log('Getting user media with constraints', constraints);
-})
-
-socket.on('chat message', function(msg) {
-  let userInput = msg;
-
-  let temp = `<div class="income-msg">
-  <p class="msg">${userInput}</p>
-  </div>`;
-
-  chatArea.insertAdjacentHTML("beforeend", temp);
-  input.value = '';
+socket.on('created', () => {
+  setStatus('Waiting for your partner to join…');
 });
 
-socket.on('full', function (room){
-    console.log('Room ' + room + ' is full');
+socket.on('joined', () => {
+  setStatus('Connecting…');
 });
 
-socket.on('join', function (room){
-    console.log('Another peer made a request to join room ' + room);
-    console.log('This peer is the initiator of room ' + room + '!');
-    isChannelReady = true;
+// The other person just joined: this side creates the offer.
+socket.on('ready', () => {
+  setStatus('Connecting…');
+  startCall();
 });
 
-socket.on('joined', function (room){
-    console.log('This peer has joined room ' + room);
-    isChannelReady = true;
-    // Call getUserMedia()
-    
-});
-socket.on('log', function (array){
-    console.log.apply(console, array);
+socket.on('full', () => {
+  alert('This room already has two people in it.');
+  window.location.href = '/home';
 });
 
-socket.on('message', function(message, room) {
-    console.log('Client received message:', message,  room);
-    if (message === 'got user media') {
-      checkAndStart();
-    } else if (message.type === 'offer') {
-      if (!isInitiator && !isStarted) {
-        checkAndStart();
+socket.on('invalid room', () => {
+  alert('This room does not exist.');
+  window.location.href = '/home';
+});
+
+socket.on('bye', () => {
+  closePeerConnection();
+  setStatus('Your partner left. Waiting for someone to join…');
+});
+
+socket.on('message', async (message) => {
+  try {
+    if (message.type === 'offer') {
+      if (!pc) createPeerConnection();
+      await pc.setRemoteDescription(message);
+      await addPendingCandidates();
+      await pc.setLocalDescription(await pc.createAnswer());
+      sendMessage(pc.localDescription);
+    } else if (message.type === 'answer' && pc) {
+      await pc.setRemoteDescription(message);
+      await addPendingCandidates();
+    } else if (message.type === 'candidate') {
+      if (pc && pc.remoteDescription) {
+        await pc.addIceCandidate(message.candidate);
+      } else {
+        pendingCandidates.push(message.candidate);
       }
-      pc.setRemoteDescription(new RTCSessionDescription(message));
-      doAnswer();
-    } else if (message.type === 'answer' && isStarted) {
-      pc.setRemoteDescription(new RTCSessionDescription(message));
-    } else if (message.type === 'candidate' && isStarted) {
-      var candidate = new RTCIceCandidate({
-        sdpMLineIndex: message.label,
-        candidate: message.candidate
-      });
-      pc.addIceCandidate(candidate);
-    } else if (message === 'bye' && isStarted) {
-      handleRemoteHangup();
     }
-});
-
-function sendMessage(message, room) {
-    console.log('Client sending message: ', message, room);
-    socket.emit('message', message, room);
-
-}
-  
-
-var localVideo = document.querySelector('#local-video');
-var remoteVideo = document.querySelector('#remote-video');
-console.log("Going to find Local media");
-navigator.mediaDevices.getUserMedia(constraints)
-.then(gotStream)
-.catch(function(e) {
-  alert('getUserMedia() error: ' + e.name);
-});
-
-//If found local stream
-function gotStream(stream) {
-  console.log('Adding local stream.');
-  localStream = stream;
-  localVideo.srcObject = stream;
-  sendMessage('got user media', room);
-  if (isInitiator) {
-    checkAndStart();
+  } catch (err) {
+    console.error('Signaling error:', err);
+    setStatus('The call could not be connected. Try reloading the page.');
   }
+});
+
+function sendMessage(message) {
+  socket.emit('message', message);
 }
 
-function checkAndStart() {
-    console.log('>>>>>>> maybeStart() ', isStarted, localStream, isChannelReady);
-    if (!isStarted && typeof localStream != 'undefined' && isChannelReady) {
-        console.log('>>>>>> creating peer connection');
-        createPeerConnection();
-        pc.addStream(localStream);
-        isStarted = true;
-        console.log('isInitiator', isInitiator);
-        if (isInitiator) {
-            doCall();
-        }
-    }
+// * ---------------- WebRTC ----------------
+
+async function startCall() {
+  createPeerConnection();
+  await pc.setLocalDescription(await pc.createOffer());
+  sendMessage(pc.localDescription);
 }
 
 function createPeerConnection() {
-    try {
-        pc = new RTCPeerConnection(pc_config);
-        pc.onicecandidate = handleIceCandidate;
-        pc.onaddstream = handleRemoteStreamAdded;
-        pc.onremovestream = handleRemoteStreamRemoved;
-        console.log('Created RTCPeerConnnection with:\n' +
-        ' config: \'' + JSON.stringify(pc_config) + '\'');
-    } catch (e) {
-        console.log('Failed to create PeerConnection, exception: ' + e.message);
-        alert('Cannot create RTCPeerConnection object.');
-        return;
+  pc = new RTCPeerConnection({ iceServers });
+  pendingCandidates = [];
+  // addTrack/ontrack replace addStream/onaddstream, which browsers removed.
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.onicecandidate = (event) => {
+    if (event.candidate) sendMessage({ type: 'candidate', candidate: event.candidate });
+  };
+  pc.ontrack = (event) => {
+    remoteVideo.srcObject = event.streams[0];
+  };
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    if (pc.connectionState === 'connected') setStatus('');
+    if (pc.connectionState === 'failed') {
+      setStatus('The connection failed. A TURN server may be needed (see README).');
     }
-}
-// Data channel management
-// Handlers...
-
-
-function handleIceCandidate(event) {
-    console.log('icecandidate event: ', event);
-    if (event.candidate) {
-      sendMessage({
-        type: 'candidate',
-        label: event.candidate.sdpMLineIndex,
-        id: event.candidate.sdpMid,
-        candidate: event.candidate.candidate
-      }, room);
-    } else {
-      console.log('End of candidates.');
-    }
+  };
 }
 
-function handleCreateOfferError(event) {
-    console.log('createOffer() error: ', event);
+async function addPendingCandidates() {
+  for (const candidate of pendingCandidates) {
+    await pc.addIceCandidate(candidate);
   }
-  
-function doCall() {
-    console.log('Sending offer to peer');
-    pc.createOffer(setLocalAndSendMessage, handleCreateOfferError);
-  }
-  
-function doAnswer() {
-    console.log('Sending answer to peer.');
-    pc.createAnswer().then(
-      setLocalAndSendMessage,
-      onCreateSessionDescriptionError
-    );
-  }
-  
-function setLocalAndSendMessage(sessionDescription) {
-    pc.setLocalDescription(sessionDescription);
-    console.log('setLocalAndSendMessage sending message', sessionDescription);
-    sendMessage(sessionDescription, room);
-  }
-  
-function onCreateSessionDescriptionError(error) {
-    trace('Failed to create session description: ' + error.toString());
-  }
-  
-  
-function handleRemoteStreamAdded(event) {
-    console.log('Remote stream added.');
-    remoteStream = event.stream;
-    remoteVideo.srcObject = remoteStream;
-  }
-  
-function handleRemoteStreamRemoved(event) {
-    console.log('Remote stream removed. Event: ', event);
-  }
-  
-function hangup() {
-    console.log('Hanging up.');
-    stop();
-    sendMessage('bye',room);
-  }
-  
-function handleRemoteHangup() {
-    console.log('Session terminated.');
-    stop();
-    isInitiator = false;
+  pendingCandidates = [];
 }
-  
-function stop() {
-  if(pc) {
+
+function closePeerConnection() {
+  if (pc) {
     pc.close();
     pc = null;
   }
-  isStarted = false;
-  window.location.href  = '/login';
-  
+  pendingCandidates = [];
+  remoteVideo.srcObject = null;
+}
+
+// * ---------------- Start ----------------
+
+// Get the camera and the ICE servers first, then join the room. Joining only
+// when the camera is ready means the offer always includes our video.
+async function start() {
+  try {
+    const response = await fetch('/ice-servers');
+    iceServers = response.ok ? await response.json() : [];
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+    socket.emit('create or join', room);
+  } catch (err) {
+    console.error(err);
+    setStatus('Could not access the camera or microphone (' + err.name + ').');
   }
+}
+
+start();

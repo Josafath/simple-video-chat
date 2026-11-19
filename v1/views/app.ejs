@@ -1,45 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel='stylesheet' href='/stylesheets/style_video_chat.css' />
     <link rel="icon" href="/images/favicon.ico"/>
     <meta name="description" content="Learn with Student Partner to study DS and Algo"/>
-    <meta charset="UTF-8">
     <title><%= title %></title>
 </head>
-<body>
-    
+<body data-room-id="<%= room.id %>">
+
+        <div class="room-info">
+            <p>Room: <strong><%= room.name %></strong></p>
+            <p id="call-status" role="status"></p>
+        </div>
+
         <div class="video-chat-container">
             <video autoplay class="remote-video" id="remote-video" playsinline></video>
-            <video autoplay class="local-video" id="local-video" playsinline></video>
+            <!-- muted: without it you hear your own microphone back -->
+            <video autoplay muted class="local-video" id="local-video" playsinline></video>
         </div>
-        
+
         <button id="hangup">
             <p class="material-icons"> Hangup </p>
         </button>
 
         <section>
-    
-            <button class="chat-btn"> 
+
+            <button class="chat-btn">
                 <p class="material-icons"> Chat </p>
             </button>
-    
-        <div class="chat-popup">
-            <div class="chat-area">
-                <ol id="messages">
 
-                </ol>
-            </div>
-            
-            <div class="input-area">
-                <input type="text" id="input">
-                <button id="emoji-btn"> &#127773;</button>
-                <button class="submit"> <p class="material-icons"> send</p></button>
-            </div>
+        <div class="chat-popup">
+            <div class="chat-area"></div>
+
+            <form class="input-area" autocomplete="off">
+                <input type="text" id="input" maxlength="500" aria-label="Message">
+                <button type="button" id="emoji-btn"> &#127773;</button>
+                <button type="submit" class="submit"> <p class="material-icons"> send</p></button>
+            </form>
         </div>
     </section>
-    
-    
+
+
     <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@3.1.1/dist/index.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/javascripts/main.js"></script>
