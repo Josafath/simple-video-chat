@@ -346,3 +346,13 @@ li a:hover {
   }
 
 }
+
+/* Error message shown above the forms (wrong password, taken room name...) */
+.form-error{
+    background-color: rgba(233, 33, 33, 0.15);
+    border: 1px solid #e92121;
+    color: #e92121;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0 1rem;
+}

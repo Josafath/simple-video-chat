@@ -1,0 +1,22 @@
+{
+  "name": "video-chat-app",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "ejs": "^3.1.10",
+    "express": "^4.22.3",
+    "express-session": "^1.19.0",
+    "mongoose": "^9.12.2",
+    "morgan": "^1.10.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "socket.io": "^4.8.4"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

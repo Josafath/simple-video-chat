@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Welcome <%= currentUser.name %> !</title>
+    <title>Welcome <%= currentUser.name %>!</title>
     <link rel='stylesheet' href='/stylesheets/style.css' />
     <link rel="icon" href="/images/favicon.ico"/>
     <meta name="description" content="Learn with Student Partner to study DS and Algo"/>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Let's Started</title>
 </head>
 <body>
     <%if (currentUser) { %>
         <ul>
             <li><a class="active" href="/home">Home</a></li>
-            <li><a class="active" href="/home/join">Join</a></li>
+            <li><a href="/home/join">Join</a></li>
             <li><a href="/log-out">Log Out</a></li>
         </ul>
         <div class="container-home">
@@ -23,8 +22,9 @@
                     <h1>Hi <i><%= currentUser.name %></i> !</h1>
                     <p>Are you ready to study?</p>
                 </div>
+                <% if (locals.error) { %><p class="form-error" role="alert"><%= error %></p><% } %>
                 <form action="" method="POST">
-                    <input type="text" name="room" class="create" autocomplete="off" placeholder="room's name" required=true> <br>
+                    <input type="text" name="room" class="create" autocomplete="off" placeholder="room's name" maxlength="50" required> <br>
                     <div class="botones_to_create_or_join">
                         <button type="submit" id="create" class="host-meeting" value="create" name="create">Create Meeting</button>
                     </div>
