@@ -12,15 +12,16 @@
     <div id="myModal" class="modal1">
         <div class="modal-content">
             <h1>Sign up</h1>
+            <% if (locals.error) { %><p class="form-error" role="alert"><%= error %></p><% } %>
             <form action="" method="POST">
                 <label for="username"><b>USER NAME</b></label> <br>
-                <input type="text" autocomplete="off" name="username" placeholder="user name" required>
+                <input type="text" autocomplete="off" name="username" placeholder="user name" value="<%= values.username || '' %>" minlength="3" maxlength="30" required>
                 <br>
                 <label for="email"><b>EMAIL</b></label> <br>
-                <input type="email" autocomplete="off" name="email" placeholder="name@domain.com" required>
+                <input type="email" autocomplete="off" name="email" placeholder="name@domain.com" value="<%= values.email || '' %>" required>
                 <br>
                 <label for="password"><b>PASSWORD</b></label> <br>
-                <input type="password" name="password" placeholder="*******" required>
+                <input type="password" name="password" placeholder="*******" minlength="8" maxlength="72" required>
                 <br>
                 <button class="custom-btn btn-11"  type="submit"><span>Sign up</span></button>
             </form>

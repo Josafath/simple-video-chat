@@ -11,12 +11,13 @@
         <div id="myModal" class="modal">
             <div class="modal-content">
                 <h1>Log In</h1>
+                <% if (locals.error) { %><p class="form-error" role="alert"><%= error %></p><% } %>
                 <form action="" method="POST">
                     <label for="username"><b>USER NAME</b></label> <br>
-                    <input type="text" autocomplete="off" name="username" placeholder="user name">
+                    <input type="text" autocomplete="off" name="username" placeholder="user name" required>
                     <br>
                     <label for="password"><b>PASSWORD</b></label> <br>
-                    <input type="password" name="password" placeholder="*******">
+                    <input type="password" name="password" placeholder="*******" required>
                     <br>
                     
                     <button class="custom-btn btn-11"  type="submit"><span>Log in</span></button>
