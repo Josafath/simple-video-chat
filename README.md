@@ -29,10 +29,13 @@ sequenceDiagram
     participant A as Browser A (first in the room)
     participant S as Server (Express + Socket.IO)
     participant B as Browser B
-    A->>S: GET /ice-servers
-    S-->>A: STUN/TURN servers (temporary Xirsys credentials)
-    A->>S: create or join (room id)
-    S-->>A: created (waits for a partner)
+    par While the camera starts
+        A->>S: GET /ice-servers
+        S-->>A: STUN/TURN servers (temporary Xirsys credentials)
+    and As soon as the camera is ready
+        A->>S: create or join (room id)
+        S-->>A: created (waits for a partner)
+    end
     B->>S: create or join (room id)
     S-->>B: joined
     S-->>A: ready
@@ -46,7 +49,10 @@ sequenceDiagram
 
 1. **Login session.** Express keeps the session in a cookie. Socket.IO reuses
    that session, so only logged-in users can connect to the signaling server.
-2. **Room.** The server lets two sockets into a room. The first gets
+2. **Room.** The browser joins as soon as the camera is on. The STUN/TURN
+   servers load at the same time and are only needed when the call starts, so a
+   slow Xirsys never delays joining. The server gives Xirsys 2.5 seconds and then
+   falls back to plain STUN. The server lets two sockets into a room. The first gets
    `created`, the second gets `joined`, and the first one then gets `ready`.
    A third person gets `full`.
 3. **Offer and answer.** The browser that was waiting creates an *offer*. It
@@ -137,6 +143,26 @@ room by its name.
 > Browsers only allow the camera on `localhost` or on **HTTPS**. To use it
 > from another device, deploy the app with HTTPS (Render, Railway, Fly.io...)
 > and set `NODE_ENV=production`.
+
+### Troubleshooting
+
+**`MongoDB Error Connection: querySrv ECONNREFUSED _mongodb._tcp...`**
+A `mongodb+srv://` connection string needs a DNS lookup that Node does with its
+own resolver. On some Windows networks that resolver can't find the system's DNS
+server (Node reports `127.0.0.1`) even though the browser works. Check it with:
+
+```bash
+node -e "console.log(require('dns').getServers())"
+```
+
+If it prints `[ '127.0.0.1' ]`, use the standard connection string instead,
+which doesn't need that lookup: in Atlas, open **Connect → Drivers**, and
+copy the string that starts with `mongodb://` and lists three hosts. If Atlas only
+shows the `+srv` one, choose an older driver version there. Restarting the
+network adapter or changing networks also fixes it.
+
+**The call never connects between two networks (for example mobile data and an
+office Wi-Fi).** A TURN server is needed: set the Xirsys variables.
 
 ## What v1 fixed
 

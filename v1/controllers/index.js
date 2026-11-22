@@ -63,6 +63,10 @@ exports.room_get = async (req, res, next) => {
     }
 }
 
+// Joining a room waits for the ICE servers, so a slow Xirsys must not hold it up for long:
+// after this, the call goes ahead with plain STUN (see ice_servers_get).
+const XIRSYS_TIMEOUT_MS = 2500;
+
 // Asks the Xirsys API for temporary STUN/TURN servers.
 // Docs: https://docs.xirsys.com/?pg=api-turn
 async function xirsysIceServers({ url, ident, secret, channel }) {
@@ -73,7 +77,7 @@ async function xirsysIceServers({ url, ident, secret, channel }) {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({ format: "urls" }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(XIRSYS_TIMEOUT_MS),
     });
     const data = await response.json();
     if (data.s !== "ok") throw new Error("Xirsys error: " + JSON.stringify(data.v));
