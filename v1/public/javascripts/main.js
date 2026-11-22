@@ -20,6 +20,19 @@ let pc;
 let iceServers;
 // ICE candidates that arrive before the offer/answer can't be added yet.
 let pendingCandidates = [];
+// True once this page has joined the room, so a reconnection knows to join again.
+let inRoom = false;
+// The side that was waiting in the room makes the offers, including ICE restarts.
+// Only one side offering avoids both peers offering at once.
+let isOfferer = false;
+// How long a "disconnected" WebRTC connection may try to heal by itself before an ICE restart.
+const ICE_RECOVERY_DELAY_MS = 3000;
+let recoveryTimer = null;
+// True while the server has us in the room on the current socket (false between a
+// dropped connection and the server confirming our seat again).
+let seated = false;
+// Id of the current call. Messages from an older call (a replaced connection) are ignored.
+let callId = null;
 
 // * ---------------- Chat ----------------
 
@@ -78,26 +91,82 @@ function setStatus(text) {
 // Hang up: tell the other peer, turn off the camera and go back home.
 endCall.onclick = (e) => {
   e.preventDefault();
-  socket.emit('bye');
+  leaveRoom();
   closePeerConnection();
   if (localStream) localStream.getTracks().forEach(track => track.stop());
   window.location.href = '/home';
 };
 
+// Leaving on purpose (hang up, closing or reloading the tab) is an immediate "bye".
+// Without it the server would hold the seat as if the connection had just dropped.
+function leaveRoom() {
+  if (!inRoom) return;
+  inRoom = false;
+  socket.emit('bye');
+}
+window.addEventListener('pagehide', leaveRoom);
+
 // * ---------------- Signaling ----------------
 
+// Socket.IO reconnects by itself after a dropped connection, but with a new socket
+// that isn't in any room. Join again: the server kept our seat for a few seconds.
+socket.on('connect', () => {
+  if (inRoom) socket.emit('create or join', room);
+});
+
+socket.on('disconnect', () => {
+  seated = false;
+  if (inRoom) setStatus('Connection lost. Reconnecting…');
+});
+
 socket.on('created', () => {
+  // A fresh room (or our partner left while we were away): start over.
+  seated = true;
+  closePeerConnection();
+  isOfferer = false;
   setStatus('Waiting for your partner to join…');
 });
 
 socket.on('joined', () => {
+  seated = true;
+  closePeerConnection();
+  isOfferer = false;
   setStatus('Connecting…');
 });
 
 // The other person just joined: this side creates the offer.
 socket.on('ready', () => {
+  seated = true;
+  closePeerConnection();
+  isOfferer = true;
   setStatus('Connecting…');
   startCall();
+});
+
+// We got our seat back after a dropped connection.
+socket.on('rejoined', ({ peerPresent }) => {
+  seated = true;
+  if (!peerPresent) {
+    // Our partner left while we were away.
+    closePeerConnection();
+    setStatus('Your partner left. Waiting for someone to join…');
+    return;
+  }
+  // The video goes browser to browser, so it often survives a signaling drop.
+  if (pc && pc.connectionState === 'connected') setStatus('');
+  else recoverConnection();
+});
+
+// Our partner's connection to the server dropped. Their seat is held for a few seconds.
+socket.on('peer disconnected', () => {
+  if (!pc || pc.connectionState !== 'connected') {
+    setStatus("Your partner's connection dropped. Waiting for them to come back…");
+  }
+});
+
+socket.on('peer rejoined', () => {
+  if (pc && pc.connectionState === 'connected') setStatus('');
+  else recoverConnection();
 });
 
 socket.on('full', () => {
@@ -118,20 +187,31 @@ socket.on('bye', () => {
 socket.on('message', async (message) => {
   try {
     if (message.type === 'offer') {
-      if (!pc) createPeerConnection();
-      await pc.setRemoteDescription(message);
-      await addPendingCandidates();
-      await pc.setLocalDescription(await pc.createAnswer());
-      sendMessage(pc.localDescription);
-    } else if (message.type === 'answer' && pc) {
-      await pc.setRemoteDescription(message);
-      await addPendingCandidates();
+      // An offer for a call we already replaced comes from the partner's old
+      // connection (for example an ICE restart sent just before a reconnection).
+      if (pc && message.callId !== callId) return;
+      if (!pc) createPeerConnection(message.callId);
+      const conn = pc;
+      await conn.setRemoteDescription({ type: message.type, sdp: message.sdp });
+      await addPendingCandidates(conn);
+      const answer = await conn.createAnswer();
+      if (conn !== pc) return;
+      await conn.setLocalDescription(answer);
+      if (conn !== pc) return;
+      sendDescription(conn.localDescription);
+    } else if (message.callId !== callId || !pc) {
+      // Answers, candidates and restart requests only make sense for the current call.
+      return;
+    } else if (message.type === 'answer') {
+      const conn = pc;
+      await conn.setRemoteDescription({ type: message.type, sdp: message.sdp });
+      await addPendingCandidates(conn);
     } else if (message.type === 'candidate') {
-      if (pc && pc.remoteDescription) {
-        await pc.addIceCandidate(message.candidate);
-      } else {
-        pendingCandidates.push(message.candidate);
-      }
+      if (pc.remoteDescription) await pc.addIceCandidate(message.candidate);
+      else pendingCandidates.push(message.candidate);
+    } else if (message.type === 'restart') {
+      // The answering side asks the offerer to restart ICE.
+      if (isOfferer) await restartIce();
     }
   } catch (err) {
     console.error('Signaling error:', err);
@@ -139,51 +219,107 @@ socket.on('message', async (message) => {
   }
 });
 
+// Every signaling message carries the id of the call it belongs to.
 function sendMessage(message) {
-  socket.emit('message', message);
+  socket.emit('message', { ...message, callId });
+}
+
+function sendDescription(description) {
+  sendMessage({ type: description.type, sdp: description.sdp });
+}
+
+function newCallId() {
+  return window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
 }
 
 // * ---------------- WebRTC ----------------
 
 async function startCall() {
-  createPeerConnection();
-  await pc.setLocalDescription(await pc.createOffer());
-  sendMessage(pc.localDescription);
+  createPeerConnection(newCallId());
+  const conn = pc;
+  const offer = await conn.createOffer();
+  if (conn !== pc) return; // replaced while waiting
+  await conn.setLocalDescription(offer);
+  if (conn !== pc) return;
+  sendDescription(conn.localDescription);
 }
 
-function createPeerConnection() {
-  pc = new RTCPeerConnection({ iceServers });
+// Each connection only acts while it is the current one: events from a replaced
+// (closed) connection must not touch the new call.
+function createPeerConnection(id) {
+  const conn = new RTCPeerConnection({ iceServers });
+  pc = conn;
+  callId = id;
   pendingCandidates = [];
   // addTrack/ontrack replace addStream/onaddstream, which browsers removed.
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  localStream.getTracks().forEach(track => conn.addTrack(track, localStream));
 
-  pc.onicecandidate = (event) => {
-    if (event.candidate) sendMessage({ type: 'candidate', candidate: event.candidate });
+  conn.onicecandidate = (event) => {
+    if (conn === pc && event.candidate) sendMessage({ type: 'candidate', candidate: event.candidate.toJSON() });
   };
-  pc.ontrack = (event) => {
-    remoteVideo.srcObject = event.streams[0];
+  conn.ontrack = (event) => {
+    if (conn === pc) remoteVideo.srcObject = event.streams[0];
   };
-  pc.onconnectionstatechange = () => {
-    if (!pc) return;
-    if (pc.connectionState === 'connected') setStatus('');
-    if (pc.connectionState === 'failed') {
-      setStatus('The connection failed. A TURN server may be needed (see README).');
+  conn.onconnectionstatechange = () => {
+    if (conn !== pc) return;
+    const state = conn.connectionState;
+    if (state === 'connected') {
+      clearTimeout(recoveryTimer);
+      setStatus('');
+    } else if (state === 'disconnected') {
+      // Often heals by itself (a short network change). If not, restart ICE.
+      setStatus('Connection unstable. Reconnecting…');
+      clearTimeout(recoveryTimer);
+      recoveryTimer = setTimeout(recoverConnection, ICE_RECOVERY_DELAY_MS);
+    } else if (state === 'failed') {
+      setStatus('Reconnecting the call…');
+      recoverConnection();
     }
   };
 }
 
-async function addPendingCandidates() {
-  for (const candidate of pendingCandidates) {
-    await pc.addIceCandidate(candidate);
+// Brings a broken call back without hanging up: the offerer restarts ICE, which
+// finds a new network path (for example after switching from Wi-Fi to mobile data).
+// It needs our seat in the room; after a reconnection, "rejoined" runs it again.
+async function recoverConnection() {
+  clearTimeout(recoveryTimer);
+  if (!pc || pc.connectionState === 'connected' || !seated) return;
+  try {
+    if (isOfferer) await restartIce();
+    else sendMessage({ type: 'restart' });
+  } catch (err) {
+    console.error('Could not restart the connection:', err);
+    setStatus('The connection failed. A TURN server may be needed (see README).');
   }
+}
+
+async function restartIce() {
+  const conn = pc;
+  // Wait for any offer/answer in flight to finish first.
+  if (!conn || conn.signalingState !== 'stable') return;
+  const offer = await conn.createOffer({ iceRestart: true });
+  if (conn !== pc) return;
+  await conn.setLocalDescription(offer);
+  if (conn !== pc) return;
+  sendDescription(conn.localDescription);
+}
+
+async function addPendingCandidates(conn) {
+  const queued = pendingCandidates;
   pendingCandidates = [];
+  for (const candidate of queued) {
+    if (conn !== pc) return;
+    await conn.addIceCandidate(candidate);
+  }
 }
 
 function closePeerConnection() {
+  clearTimeout(recoveryTimer);
   if (pc) {
     pc.close();
     pc = null;
   }
+  callId = null;
   pendingCandidates = [];
   remoteVideo.srcObject = null;
 }
@@ -198,6 +334,7 @@ async function start() {
     iceServers = response.ok ? await response.json() : [];
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
+    inRoom = true;
     socket.emit('create or join', room);
   } catch (err) {
     console.error(err);
