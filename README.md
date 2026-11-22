@@ -54,8 +54,16 @@ sequenceDiagram
 4. **ICE.** Each browser finds ways to be reached (local IP, public IP from
    STUN, or a relay address from TURN). They send these *candidates* through
    the server until one pair works.
-5. **Hang up.** The browser sends `bye`, or the server sends it when the tab
-   closes. The other person stays in the room, and a new partner can join.
+5. **Hang up.** The browser sends `bye` when you hang up, close or reload the
+   tab. The other person stays in the room, and a new partner can join.
+6. **Dropped connection.** If the connection to the server drops (Wi-Fi blip,
+   phone in the background), the server keeps the seat for 10 seconds and tells
+   the partner. Socket.IO reconnects by itself and the browser takes its seat
+   back. The video goes browser to browser, so it usually keeps playing; if the
+   WebRTC connection broke too, the browser that made the offer restarts ICE to
+   find a new network path. Every signaling message carries the id of its call,
+   so messages from a replaced connection are ignored. After 10 seconds without
+   coming back, the partner gets `bye` and the seat is free again.
 
 ### Project structure (v1)
 
@@ -162,7 +170,7 @@ the problems that v1 fixes:
 ## Known limitations (v1)
 
 - Two people per room. Group calls would need an SFU (a media server) instead of peer-to-peer.
-- Sessions live in memory (`MemoryStore`): they are lost when the server restarts, and it doesn't scale to several servers.
+- Sessions live in memory (`MemoryStore`): they are lost when the server restarts, and it doesn't scale to several servers. A server restart therefore ends calls: the browsers can't reconnect without logging in again. Held seats are also kept in memory.
 - No CSRF tokens. The `sameSite=lax` cookie blocks the usual cross-site form posts.
 - No automated tests in the repo yet.
 
