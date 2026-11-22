@@ -22,15 +22,14 @@ exports.index = (req, res, next) => {
 
 // * --------------- GET requests ONLY -----------------
 exports.login_get = (req, res, next) => {
-    const error = req.query.error ? "Incorrect username or password" : null;
-    res.render('login', { title: "Login", error })
+    res.render('login', { title: "Login", error: null })
 }
 
 exports.signup_get = (req, res, next) => {
     res.render('signup', { title: "Sign up", error: null, values: {} })
 }
 
-exports.log_out_get = (req, res, next) => {
+exports.log_out_post = (req, res, next) => {
     // Since passport 0.6 logout is asynchronous and needs a callback.
     req.logout((err) => {
         if (err) return next(err);
