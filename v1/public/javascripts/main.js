@@ -18,6 +18,9 @@ const room = document.body.dataset.roomId;
 let localStream;
 let pc;
 let iceServers;
+// Resolves once the STUN/TURN servers are loaded (start() replaces it). Creating a
+// peer connection waits for it; joining the room doesn't.
+let iceServersReady = Promise.resolve();
 // ICE candidates that arrive before the offer/answer can't be added yet.
 let pendingCandidates = [];
 // True once this page has joined the room, so a reconnection knows to join again.
@@ -181,11 +184,16 @@ socket.on('invalid room', () => {
 
 socket.on('bye', () => {
   closePeerConnection();
+  // Whoever is left waits; the next person to join triggers "ready" here again.
+  isOfferer = false;
   setStatus('Your partner left. Waiting for someone to join…');
 });
 
 socket.on('message', async (message) => {
   try {
+    // Every message waits here, so they keep their order: the offer creates the
+    // connection before the candidates that follow it are handled.
+    await iceServersReady;
     if (message.type === 'offer') {
       // An offer for a call we already replaced comes from the partner's old
       // connection (for example an ICE restart sent just before a reconnection).
@@ -235,6 +243,9 @@ function newCallId() {
 // * ---------------- WebRTC ----------------
 
 async function startCall() {
+  await iceServersReady;
+  // While waiting, the partner may have left (bye) or another call may have started.
+  if (!isOfferer || pc) return;
   createPeerConnection(newCallId());
   const conn = pc;
   const offer = await conn.createOffer();
@@ -326,20 +337,56 @@ function closePeerConnection() {
 
 // * ---------------- Start ----------------
 
-// Get the camera and the ICE servers first, then join the room. Joining only
+// Used when the ICE servers can't be fetched: works on most home networks.
+const FALLBACK_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// The server already gives Xirsys 2.5 s; this only guards against a server that hangs.
+// It's generous because joining the room doesn't wait for it, only starting the call
+// does, and giving up means losing TURN (calls from strict networks may then fail).
+const ICE_SERVERS_TIMEOUT_MS = 10000;
+
+async function loadIceServers() {
+  try {
+    const signal = AbortSignal.timeout ? AbortSignal.timeout(ICE_SERVERS_TIMEOUT_MS) : undefined;
+    const response = await fetch('/ice-servers', { signal });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return await response.json();
+  } catch (err) {
+    console.warn('Using public STUN only, the ICE servers could not be loaded:', err.message);
+    return FALLBACK_ICE_SERVERS;
+  }
+}
+
+function cameraErrorMessage(err) {
+  switch (err.name) {
+    case 'NotAllowedError':
+      return 'Camera and microphone access is blocked. Allow it from the icon in the address bar, then reload the page.';
+    case 'NotFoundError':
+      return 'No camera or microphone was found. Connect one and reload the page.';
+    case 'NotReadableError':
+      return 'Your camera or microphone is being used by another app. Close it and reload the page.';
+    default:
+      return 'Could not access the camera or microphone (' + err.name + ').';
+  }
+}
+
+// Join as soon as the camera is ready. The ICE servers load at the same time and are
+// only needed when the call starts (startCall and incoming offers wait for them), which
+// is usually much later: the first person is still waiting for a partner. Joining only
 // when the camera is ready means the offer always includes our video.
 async function start() {
+  setStatus('Starting your camera…');
+  iceServersReady = loadIceServers().then((servers) => { iceServers = servers; });
   try {
-    const response = await fetch('/ice-servers');
-    iceServers = response.ok ? await response.json() : [];
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-    inRoom = true;
-    socket.emit('create or join', room);
   } catch (err) {
     console.error(err);
-    setStatus('Could not access the camera or microphone (' + err.name + ').');
+    setStatus(cameraErrorMessage(err));
+    return;
   }
+  localVideo.srcObject = localStream;
+  setStatus('Joining the room…');
+  inRoom = true;
+  socket.emit('create or join', room);
 }
 
 start();
