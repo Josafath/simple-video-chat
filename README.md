@@ -193,10 +193,20 @@ the problems that v1 fixes:
 - After a hangup, the person who stayed can receive a new partner in the same room.
 - Unused dependencies were removed (`dotenv`, `express-validator`, `cookie-parser`, `debug`, `http-errors`). Node reads `.env` by itself now.
 
+## Security hardening
+
+- **Login brute force:** 10 failed logins per IP every 15 minutes, then the login answers 429 ("Too many failed attempts"). Successful logins don't count. Sign-up is limited to 10 accounts per IP per hour.
+- **Security headers** with [helmet](https://helmetjs.github.io/): a Content Security Policy that only allows the app's own files, the emoji picker from jsDelivr, the error page's Giphy embed and the Socket.IO WebSocket; `X-Content-Type-Options`, `Referrer-Policy`, no `X-Powered-By`, and HSTS in production.
+- **Subresource Integrity** on the emoji picker: the browser refuses the file if the CDN ever serves a different one.
+- **Sessions in MongoDB** (collection `sessions`, via [connect-mongo](https://github.com/jdesboeufs/connect-mongo)), deleted automatically when they expire after 8 hours. A restart or a deploy no longer logs everybody out, so browsers in a call reconnect on their own and start the call again.
+- The session stores the user's id and name, so pages and the signaling server no longer query the users collection on every request.
+- **Log out is a POST** form, so a link or image on another site can't log users out.
+
 ## Known limitations (v1)
 
 - Two people per room. Group calls would need an SFU (a media server) instead of peer-to-peer.
-- Sessions live in memory (`MemoryStore`): they are lost when the server restarts, and it doesn't scale to several servers. A server restart therefore ends calls: the browsers can't reconnect without logging in again. Held seats are also kept in memory.
+- Held seats and the login/sign-up limits are kept in the server's memory: fine for one server, but several servers would need a shared store (for example Redis) and the Socket.IO Redis adapter.
+- After a server restart the call starts again (a short pause in the video), because held seats don't survive the restart.
 - No CSRF tokens. The `sameSite=lax` cookie blocks the usual cross-site form posts.
 - No automated tests in the repo yet.
 

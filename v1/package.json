@@ -7,9 +7,12 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "connect-mongo": "^6.0.0",
     "ejs": "^3.1.10",
     "express": "^4.22.3",
+    "express-rate-limit": "^8.7.3",
     "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
     "mongoose": "^9.12.2",
     "morgan": "^1.10.0",
     "passport": "^0.7.0",

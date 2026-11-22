@@ -276,6 +276,27 @@ li a {
   text-decoration: none;
 }
 
+/* Log Out is a form (POST) but looks like the other menu links. */
+li form {
+  margin: 0;
+}
+
+.nav-button {
+  display: block;
+  padding: 14px 16px;
+  border: 0;
+  background: none;
+  color: #3a3a3ad0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-button:hover,
+.nav-button:focus-visible {
+  background-color: #ffcc5c;
+  color: white;
+}
+
 li a:hover {
   background-color: #ffcc5c;
   color:white;
