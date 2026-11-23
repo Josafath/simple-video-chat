@@ -29,6 +29,20 @@
                         <button type="submit" id="create" class="host-meeting" value="create" name="create">Create Meeting</button>
                     </div>
                 </form>
+                <p class="hint">Rooms are private: share the invite link with your partner. A room is deleted after a day without use.</p>
+                <% if (locals.rooms && rooms.length) { %>
+                    <section class="my-rooms" aria-labelledby="my-rooms-title">
+                        <h2 id="my-rooms-title">Your rooms</h2>
+                        <ul>
+                            <% rooms.forEach((room) => { %>
+                                <li>
+                                    <a href="<%= room.url %>"><%= room.name %></a>
+                                    <span class="expires">expires <time datetime="<%= room.expiresAt.toISOString() %>"><%= room.expiresAt.toUTCString() %></time></span>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </section>
+                <% } %>
             </div>
         </div>
     <% } %>

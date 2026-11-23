@@ -85,6 +85,23 @@ socket.on('chat message', (msg) => {
   popup.classList.add('show');
 });
 
+// * ---------------- Invite link ----------------
+
+// The room is private: the only way in is this link, so make it easy to share.
+const inviteInput = document.getElementById('invite-link');
+const copyInvite = document.getElementById('copy-invite');
+copyInvite.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(inviteInput.value);
+    copyInvite.textContent = 'Copied!';
+  } catch {
+    // No clipboard access (old browser, or not HTTPS): select it so Ctrl+C works.
+    inviteInput.select();
+    copyInvite.textContent = 'Press Ctrl+C to copy';
+  }
+  setTimeout(() => { copyInvite.textContent = 'Copy invite link'; }, 2000);
+});
+
 // * ---------------- Call status ----------------
 
 function setStatus(text) {

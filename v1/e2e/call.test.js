@@ -82,9 +82,9 @@ async function startCall() {
   const roomId = await createRoom(app.baseUrl, anaCookie, `e2e-room-${++roomCount}`);
   const ana = await openSession(anaCookie);
   const ben = await openSession(benCookie);
-  await ana.goto(`${app.baseUrl}/home/room/${roomId}`);
+  await ana.goto(`${app.baseUrl}/room/${roomId}`);
   await ana.waitForFunction(() => /Waiting for your partner/.test(document.getElementById("call-status").textContent));
-  await ben.goto(`${app.baseUrl}/home/room/${roomId}`);
+  await ben.goto(`${app.baseUrl}/room/${roomId}`);
   await Promise.all([waitForCall(ana), waitForCall(ben)]);
   return { ana, ben };
 }

@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const passport = require("passport");
 const { Server } = require("socket.io");
 const Room = require("./models/Rooms");
@@ -67,10 +66,11 @@ function setupSockets(server, sessionMiddleware, { reconnectGraceMs = RECONNECT_
 
     socket.on("create or join", async (roomId) => {
       if (socket.data.room) return;
-      // Only rooms that were created from /home can be joined.
+      // The room id is the room's secret invite token: only someone with the link
+      // knows it, and only rooms that exist and haven't expired can be joined.
       let exists = false;
       try {
-        exists = mongoose.isValidObjectId(roomId) && Boolean(await Room.exists({ _id: roomId }));
+        exists = await Room.isActive(roomId);
       } catch (err) {
         // An error thrown here would not be caught and would stop the server.
         console.error("Could not look up room", err);
