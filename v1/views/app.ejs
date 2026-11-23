@@ -8,11 +8,16 @@
     <meta name="description" content="Learn with Student Partner to study DS and Algo"/>
     <title><%= title %></title>
 </head>
-<body data-room-id="<%= room.id %>">
+<body data-room-id="<%= room.token %>">
 
         <div class="room-info">
             <p>Room: <strong><%= room.name %></strong></p>
             <p id="call-status" role="status"></p>
+            <div class="invite">
+                <label for="invite-link">Invite link</label>
+                <input id="invite-link" type="text" value="<%= inviteUrl %>" readonly>
+                <button type="button" id="copy-invite">Copy invite link</button>
+            </div>
         </div>
 
         <div class="video-chat-container">

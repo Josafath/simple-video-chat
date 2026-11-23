@@ -31,6 +31,9 @@ server.on('listening', onListening);
  */
 
 mongoose.connect(config.mongodbUri)
+  // Makes the rooms' indexes match the model: drops the unique index on the name
+  // (from before rooms were private) and creates the invite-token and expiry ones.
+  .then(() => require('../models/Rooms').syncIndexes())
   .then(() => server.listen(port))
   .catch((err) => {
     console.error('MongoDB Error Connection:', err.message);

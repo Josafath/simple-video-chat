@@ -39,11 +39,19 @@ describe("access", () => {
     assert.ok(err);
   });
 
-  it("only lets people join rooms that exist", async () => {
+  it("only lets people join rooms that exist, by their secret token", async () => {
     const socket = app.socket(ana);
-    socket.emit("create or join", "000000000000000000000000");
-    await nextEvent(socket, "invalid room");
-    socket.emit("create or join", "not-an-id");
+    for (const roomId of ["AAAAAAAAAAAAAAAAAAAAAA", "not-a-token", "000000000000000000000000", { $gt: "" }, null]) {
+      socket.emit("create or join", roomId);
+      await nextEvent(socket, "invalid room");
+    }
+  });
+
+  it("refuses rooms that have expired", async () => {
+    const roomId = await newRoom();
+    await app.mongoose.model("Rooms").updateOne({ token: roomId }, { expiresAt: new Date(Date.now() - 1000) });
+    const socket = app.socket(ana);
+    socket.emit("create or join", roomId);
     await nextEvent(socket, "invalid room");
   });
 });

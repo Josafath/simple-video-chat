@@ -236,3 +236,32 @@ video.remote-video, video.local-video {
     }
     
 }
+
+/* Invite link: the only way into a private room. */
+.invite{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.invite input{
+    width: min(22rem, 70vw);
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #bbb;
+    border-radius: 5px;
+    font: inherit;
+}
+
+.invite button{
+    padding: 0.35rem 0.75rem;
+    border: 0;
+    border-radius: 5px;
+    background-color: #2d6cdf;
+    color: white;
+    font: inherit;
+    cursor: pointer;
+}

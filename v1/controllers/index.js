@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const config = require("../config");
 const User = require("../models/Users");
@@ -6,6 +5,29 @@ const Room = require("../models/Rooms");
 
 // MongoDB error code for a duplicated value in a unique index.
 const DUPLICATE_KEY = 11000;
+
+// Stops one account from filling the database with rooms (they expire after a day).
+const MAX_ACTIVE_ROOMS = 20;
+
+/**
+ * Where to go after logging in or signing up: the page that asked for a login
+ * (for example an invite link), or home. Only local paths, so a crafted link
+ * can't send the user to another site.
+ */
+function afterLogin(returnTo) {
+    return typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/home";
+}
+exports.afterLogin = afterLogin;
+
+/** The user's rooms that haven't expired, newest first. */
+function activeRoomsOf(userId) {
+    return Room.find({ owner: userId, expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 }).limit(MAX_ACTIVE_ROOMS);
+}
+
+function renderHome(res, req, status, error) {
+    return activeRoomsOf(req.user._id).then((rooms) =>
+        res.status(status).render('home', { title: "Welcome!", error, rooms }));
+}
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,30}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,25 +60,25 @@ exports.log_out_post = (req, res, next) => {
 }
 
 exports.home_get = (req, res, next) => {
-    res.render('home', { title: "Welcome!", error: null })
+    renderHome(res, req, 200, null).catch(next);
 }
 
 exports.join_get = (req, res, next) => {
     res.render('join', { title: "Join the partner meeting", error: null })
 }
 
+// Anyone logged in who has the invite link can open the room (two people at most
+// are let into the call). Opening it also keeps it from expiring.
 exports.room_get = async (req, res, next) => {
     try {
-        // A malformed id would make findById throw, so treat it as "not found".
-        const room = mongoose.isValidObjectId(req.params.id)
-            ? await Room.findById(req.params.id)
-            : null;
+        const room = await Room.openByToken(req.params.token);
         if (!room) {
-            const err = new Error("Room not found");
+            const err = new Error("This invite link is not valid or the room has expired");
             err.status = 404;
             return next(err);
         }
-        res.render('app', { title: "Meeting in Progress", room })
+        const inviteUrl = `${req.protocol}://${req.get('host')}${room.url}`;
+        res.render('app', { title: "Meeting in Progress", room, inviteUrl })
     } catch (err) {
         next(err);
     }
@@ -101,16 +123,18 @@ exports.ice_servers_get = async (req, res, next) => {
 
 // * --------------- POST requests ONLY -----------------
 
+// Accepts the whole invite link (https://.../room/<token>) or just the token.
 exports.join_post = async (req, res, next) => {
     try {
-        const room = await Room.findOne({ name: field(req.body.room) });
-        if (!room) {
+        const invite = field(req.body.invite);
+        const token = (invite.match(/([A-Za-z0-9_-]{22})\/?(?:[?#].*)?$/) || [])[1];
+        if (!token || !(await Room.isActive(token))) {
             return res.status(404).render('join', {
                 title: "Join the partner meeting",
-                error: "There is no room with that name",
+                error: "That invite link is not valid or the room has expired",
             });
         }
-        res.redirect(room.url);
+        res.redirect("/room/" + token);
     } catch (err) {
         next(err);
     }
@@ -118,22 +142,18 @@ exports.join_post = async (req, res, next) => {
 
 exports.home_post = async (req, res, next) => {
     const name = field(req.body.room);
-    const renderError = (status, error) =>
-        res.status(status).render('home', { title: "Welcome!", error });
-
-    if (name.length < 1 || name.length > 50) {
-        return renderError(400, "The room name must have between 1 and 50 characters");
-    }
     try {
-        // The old code forgot the await, so this check never found anything.
-        if (await Room.exists({ name })) {
-            return renderError(409, "That room name is already taken");
+        if (name.length < 1 || name.length > 50) {
+            return await renderHome(res, req, 400, "The room name must have between 1 and 50 characters");
         }
-        const room = await new Room({ name }).save();
+        // Names are only labels now, so they don't have to be unique.
+        const active = await Room.countDocuments({ owner: req.user._id, expiresAt: { $gt: new Date() } });
+        if (active >= MAX_ACTIVE_ROOMS) {
+            return await renderHome(res, req, 429, `You already have ${MAX_ACTIVE_ROOMS} active rooms. Use one of them, or wait for an old one to expire.`);
+        }
+        const room = await new Room({ name, owner: req.user._id }).save();
         res.redirect(room.url);
     } catch (err) {
-        // Two users created the same name at the same moment.
-        if (err.code === DUPLICATE_KEY) return renderError(409, "That room name is already taken");
         next(err);
     }
 }
@@ -164,9 +184,11 @@ exports.signup_post = async (req, res, next) => {
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await new User({ name: username, email, password: hashedPassword }).save();
+        // Read it before logging in: req.login starts a new session.
+        const returnTo = req.session.returnTo;
         req.login(user, (err) => {
             if (err) return next(err);
-            res.redirect("/home");
+            res.redirect(afterLogin(returnTo));
         });
     } catch (err) {
         if (err.code === DUPLICATE_KEY) return renderError(409, "That username or email is already registered");

@@ -20,11 +20,11 @@
             <div class="box">
                 <div>
                     <h1>Hi <i><%= currentUser.name %></i> !</h1>
-                    <p>Are you ready to join the meeting?</p>
+                    <p>Paste the invite link your partner sent you.</p>
                 </div>
                 <% if (locals.error) { %><p class="form-error" role="alert"><%= error %></p><% } %>
                 <form action="" method="POST">
-                    <input type="text" name="room" class="create" autocomplete="off" placeholder="room's name" maxlength="50" required> <br>
+                    <input type="text" name="invite" class="create" autocomplete="off" placeholder="https://…/room/…" maxlength="300" aria-label="Invite link" required> <br>
                     <div class="botones_to_create_or_join">
                         <button type="submit" id="create" class="host-meeting" value="create">Join Meeting</button>
                     </div>

@@ -17,7 +17,7 @@ const get = (path, withCookie) =>
   fetch(app.baseUrl + path, { redirect: "manual", headers: withCookie ? { cookie: withCookie } : {} });
 
 describe("pages that need a login", () => {
-  for (const path of ["/home", "/home/join", "/home/room/000000000000000000000000", "/ice-servers"]) {
+  for (const path of ["/home", "/home/join", "/room/AAAAAAAAAAAAAAAAAAAAAA", "/ice-servers"]) {
     it(`${path} sends anonymous visitors to the login page`, async () => {
       const res = await get(path);
       assert.equal(res.status, 302);
@@ -107,40 +107,106 @@ describe("login and sessions", () => {
   });
 });
 
-describe("rooms", () => {
-  it("creates a room and opens it", async () => {
-    const id = await createRoom(app.baseUrl, cookie, "study-group");
-    const res = await get(`/home/room/${id}`, cookie);
+describe("private rooms", () => {
+  const Room = () => app.mongoose.model("Rooms");
+
+  it("creates a room with a secret 22-character token and opens it by its invite link", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "study-group");
+    assert.match(token, /^[A-Za-z0-9_-]{22}$/);
+    const res = await get(`/room/${token}`, cookie);
     assert.equal(res.status, 200);
-    assert.match(await res.text(), new RegExp(`data-room-id="${id}"`));
+    const html = await res.text();
+    assert.match(html, new RegExp(`data-room-id="${token}"`));
+    assert.match(html, new RegExp(`value="${app.baseUrl}/room/${token}"`), "the page shows the full invite link");
   });
 
-  it("refuses a taken, empty or too long name, and form arrays", async () => {
-    await createRoom(app.baseUrl, cookie, "popular");
-    const cases = [[{ room: "popular" }, 409], [{ room: "   " }, 400], [{ room: "x".repeat(51) }, 400], [{ "room[]": "a" }, 400]];
-    for (const [fields, status] of cases) {
-      assert.equal((await postForm(app.baseUrl, "/home", fields, cookie)).status, status, JSON.stringify(fields));
+  it("gives every room a different token, even with the same name (names are only labels)", async () => {
+    const a = await createRoom(app.baseUrl, cookie, "math");
+    const b = await createRoom(app.baseUrl, cookie, "math");
+    assert.notEqual(a, b);
+  });
+
+  it("refuses an empty or too long name, and form arrays", async () => {
+    for (const fields of [{ room: "   " }, { room: "x".repeat(51) }, { "room[]": "a" }]) {
+      assert.equal((await postForm(app.baseUrl, "/home", fields, cookie)).status, 400, JSON.stringify(fields));
     }
   });
 
-  it("joins a room by its name, and says so when it doesn't exist", async () => {
-    const id = await createRoom(app.baseUrl, cookie, "by-name");
-    const found = await postForm(app.baseUrl, "/home/join", { room: "by-name" }, cookie);
-    assert.equal(found.status, 302);
-    assert.equal(found.headers.get("location"), `/home/room/${id}`);
-    const missing = await postForm(app.baseUrl, "/home/join", { room: "no-such-room" }, cookie);
-    assert.equal(missing.status, 404);
-    assert.match(await missing.text(), /no room with that name/);
+  it("joins with the invite link or just its code", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "invite-me");
+    for (const invite of [`${app.baseUrl}/room/${token}`, `${app.baseUrl}/room/${token}/`, `https://example.org/room/${token}?x=1`, token, `  ${token}  `]) {
+      const res = await postForm(app.baseUrl, "/home/join", { invite }, cookie);
+      assert.equal(res.status, 302, invite);
+      assert.equal(res.headers.get("location"), `/room/${token}`);
+    }
   });
 
-  it("answers 404 for malformed or unknown room ids", async () => {
-    assert.equal((await get("/home/room/not-an-id", cookie)).status, 404);
-    assert.equal((await get("/home/room/000000000000000000000000", cookie)).status, 404);
+  it("can't be joined by its name any more, or with a made-up link", async () => {
+    await createRoom(app.baseUrl, cookie, "secret-plans");
+    for (const invite of ["secret-plans", "AAAAAAAAAAAAAAAAAAAAAA", `${app.baseUrl}/room/not-a-token`]) {
+      const res = await postForm(app.baseUrl, "/home/join", { invite }, cookie);
+      assert.equal(res.status, 404, invite);
+      assert.match(await res.text(), /not valid or the room has expired/);
+    }
+  });
+
+  it("answers 404 for malformed or unknown tokens", async () => {
+    for (const path of ["/room/not-a-token", "/room/AAAAAAAAAAAAAAAAAAAAAA"]) {
+      const res = await get(path, cookie);
+      assert.equal(res.status, 404, path);
+      assert.match(await res.text(), /not valid or the room has expired/);
+    }
+  });
+
+  it("stops working once the room has expired", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "old-room");
+    await Room().updateOne({ token }, { expiresAt: new Date(Date.now() - 1000) });
+    assert.equal((await get(`/room/${token}`, cookie)).status, 404);
+    assert.equal((await postForm(app.baseUrl, "/home/join", { invite: token }, cookie)).status, 404);
+  });
+
+  it("pushes the expiry back each time the room is opened", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "busy-room");
+    const soon = new Date(Date.now() + 60 * 1000);
+    await Room().updateOne({ token }, { expiresAt: soon });
+    await get(`/room/${token}`, cookie);
+    const room = await Room().findOne({ token });
+    assert.ok(room.expiresAt - Date.now() > 23 * 60 * 60 * 1000, "about a day from now");
+  });
+
+  it("lets MongoDB delete expired rooms (TTL index), with unique tokens and no unique names", async () => {
+    const indexes = await Room().collection.indexes();
+    const byKey = (key) => indexes.find((i) => Object.keys(i.key).join() === key);
+    assert.equal(byKey("expiresAt")?.expireAfterSeconds, 0);
+    assert.equal(byKey("token")?.unique, true);
+    assert.ok(!byKey("name")?.unique, "room names are not unique any more");
+  });
+
+  it("lists the user's own active rooms on the home page, not other people's or expired ones", async () => {
+    await createUser("lister", "lister-password");
+    const lister = await login(app.baseUrl, { name: "lister", password: "lister-password" });
+    const mine = await createRoom(app.baseUrl, lister, "my-visible-room");
+    const gone = await createRoom(app.baseUrl, lister, "my-expired-room");
+    await Room().updateOne({ token: gone }, { expiresAt: new Date(Date.now() - 1000) });
+    await createRoom(app.baseUrl, cookie, "someone-elses-room");
+    const html = await (await get("/home", lister)).text();
+    assert.match(html, new RegExp(`href="/room/${mine}">my-visible-room<`));
+    assert.doesNotMatch(html, /my-expired-room/);
+    assert.doesNotMatch(html, /someone-elses-room/);
+  });
+
+  it("limits each user to 20 active rooms", async () => {
+    await createUser("hoarder", "hoarder-password");
+    const hoarder = await login(app.baseUrl, { name: "hoarder", password: "hoarder-password" });
+    for (let i = 0; i < 20; i++) await createRoom(app.baseUrl, hoarder, `room-${i}`);
+    const res = await postForm(app.baseUrl, "/home", { room: "one-too-many" }, hoarder);
+    assert.equal(res.status, 429);
+    assert.match(await res.text(), /already have 20 active rooms/);
   });
 
   it("escapes room names in the page (no HTML injection)", async () => {
-    const id = await createRoom(app.baseUrl, cookie, "<img src=x onerror=alert(1)>");
-    const html = await (await get(`/home/room/${id}`, cookie)).text();
+    const token = await createRoom(app.baseUrl, cookie, "<img src=x onerror=alert(1)>");
+    const html = await (await get(`/room/${token}`, cookie)).text();
     assert.ok(!html.includes("<img src=x"), "raw HTML must not reach the page");
     assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
   });
@@ -149,6 +215,34 @@ describe("rooms", () => {
     const res = await get("/ice-servers", cookie);
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), []); // ICE_SERVERS=[] in the tests
+  });
+});
+
+describe("invite links for people who aren't logged in", () => {
+  it("sends them to the login page and back to the room afterwards", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "come-back-here");
+    const visit = await get(`/room/${token}`);
+    assert.equal(visit.headers.get("location"), "/login");
+    const visitor = sessionCookie(visit); // the session remembers where they were going
+    await createUser("guest", "guest-password");
+    const res = await postForm(app.baseUrl, "/login", { username: "guest", password: "guest-password" }, visitor);
+    assert.equal(res.status, 302);
+    assert.equal(res.headers.get("location"), `/room/${token}`);
+  });
+
+  it("brings people who sign up back to the room too", async () => {
+    const token = await createRoom(app.baseUrl, cookie, "new-people-welcome");
+    const visitor = sessionCookie(await get(`/room/${token}`));
+    const res = await postForm(app.baseUrl, "/signup", { username: "newcomer", email: "newcomer@example.test", password: "long-enough-1" }, visitor);
+    assert.equal(res.headers.get("location"), `/room/${token}`);
+  });
+
+  it("only ever returns to a page of this site", () => {
+    const { afterLogin } = require("../controllers/index");
+    assert.equal(afterLogin("/room/abc"), "/room/abc");
+    for (const unsafe of ["//evil.example/room", "https://evil.example", "javascript:alert(1)", undefined, 42]) {
+      assert.equal(afterLogin(unsafe), "/home", String(unsafe));
+    }
   });
 });
 

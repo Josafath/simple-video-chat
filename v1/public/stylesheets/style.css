@@ -377,3 +377,53 @@ li a:hover {
     padding: 0.5rem 1rem;
     margin: 0.5rem 0 1rem;
 }
+
+/* Home: what private rooms mean, and the user's active rooms. */
+.hint{
+    margin: 1rem 0 0;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.my-rooms{
+    margin-top: 1.25rem;
+    text-align: left;
+}
+
+.my-rooms h2{
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+}
+
+/* A plain list, not the floating navigation bar the global ul/li rules style. */
+.my-rooms ul{
+    overflow: visible;
+    background: none;
+}
+
+.my-rooms li{
+    float: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.my-rooms li a{
+    display: inline;
+    padding: 0;
+    color: #2d6cdf;
+    text-align: left;
+}
+
+.my-rooms li a:hover{
+    background: none;
+    color: #1b4aa3;
+    text-decoration: underline;
+}
+
+.my-rooms .expires{
+    color: #777;
+    font-size: 0.8rem;
+}

@@ -6,8 +6,8 @@
   <img width="460" height="300" src="https://user-images.githubusercontent.com/29525443/130464057-8c7ec676-fae3-4532-b477-2420e25c977d.png">
 </p>
 
-A one-to-one video chat for studying with a partner. You sign up, create a room
-(or join one by its name), and talk face to face with video, audio and a text
+A one-to-one video chat for studying with a partner. You sign up, create a private
+room, send its invite link to your partner, and talk face to face with video, audio and a text
 chat. The video goes directly between the two browsers with **WebRTC**. The
 server only introduces the two browsers to each other (the *signaling*) with
 **Socket.IO**.
@@ -19,7 +19,7 @@ server only introduces the two browsers to each other (the *signaling*) with
 ## Features
 
 - Sign up and log in (Passport, passwords hashed with bcrypt, MongoDB).
-- Create a room with a unique name, or join an existing one by name.
+- Private rooms: each one has a secret invite link (`/room/<token>`, 128 random bits) and is deleted after a day without use. Your active rooms are listed on the home page.
 - Peer-to-peer video and audio with WebRTC (two people per room).
 - Text chat inside the room, with emojis.
 - STUN/TURN servers from [Xirsys](https://xirsys.com/), with temporary credentials made by the server.
@@ -51,7 +51,10 @@ sequenceDiagram
 
 1. **Login session.** Express keeps the session in a cookie. Socket.IO reuses
    that session, so only logged-in users can connect to the signaling server.
-2. **Room.** The browser joins as soon as the camera is on. The STUN/TURN
+2. **Room.** Rooms are opened with their invite link: the room id in the
+   signaling is that secret token, so only people who were sent the link can
+   join. Someone who isn't logged in is sent to the login (or sign-up) page and
+   then back to the room. The browser joins as soon as the camera is on. The STUN/TURN
    servers load at the same time and are only needed when the call starts, so a
    slow Xirsys never delays joining. The server gives Xirsys 2.5 seconds and then
    falls back to plain STUN. The server lets two sockets into a room. The first gets
@@ -173,8 +176,8 @@ npm start
 ```
 
 Open http://localhost:3000, sign up, and create a room. To test alone, open a
-second browser (or a private window), sign up with another user, and join the
-room by its name.
+second browser (or a private window), sign up with another user, and open the
+room's invite link (the **Copy invite link** button in the room).
 
 > Browsers only allow the camera on `localhost` or on **HTTPS**. To use it
 > from another device, deploy the app with HTTPS (Render, Railway, Fly.io...)
@@ -221,7 +224,7 @@ the problems that v1 fixes:
 
 - The room counter started at 1, so the second person was treated like the first one and the call never started.
 - The chat used `io.emit`, so every message went to every room.
-- Creating a room never detected duplicate names (a missing `await`). Rooms now have a unique name.
+- Creating a room never detected duplicate names (a missing `await`). (Since then rooms became private, with invite links, so names no longer need to be unique.)
 - Sign-up checked duplicates without waiting for the result, and compared the email against the username. It could crash with "headers already sent". Usernames and emails are now unique, and the forms show clear errors.
 - Login failures, unknown rooms and taken names failed silently. They now show a message.
 - WebRTC used `addStream`/`onaddstream`, which browsers removed. It now uses `addTrack`/`ontrack` and promises. ICE candidates that arrive early are queued.
@@ -231,6 +234,7 @@ the problems that v1 fixes:
 
 ## Security hardening
 
+- **Private rooms.** Rooms used to be joined by name, so anyone logged in who guessed a name ("math") could take the second seat of a call, and a name stayed taken forever. Now each room has a random 128-bit invite token (`/room/<token>`); the name is only a label. Rooms expire 24 hours after they were last opened (a MongoDB TTL index deletes them), and each user can have up to 20 active rooms. Tokens are checked as strings, so a query object (`{ "$gt": "" }`) can't match every room. On start, the server syncs the room indexes, which drops the old unique index on names.
 - **Login brute force:** 10 failed logins per IP every 15 minutes, then the login answers 429 ("Too many failed attempts"). Successful logins don't count. Sign-up is limited to 10 accounts per IP per hour.
 - **Security headers** with [helmet](https://helmetjs.github.io/): a Content Security Policy that only allows the app's own files, the emoji picker from jsDelivr, the error page's Giphy embed and the Socket.IO WebSocket; `X-Content-Type-Options`, `Referrer-Policy`, no `X-Powered-By`, and HSTS in production.
 - **Subresource Integrity** on the emoji picker: the browser refuses the file if the CDN ever serves a different one.

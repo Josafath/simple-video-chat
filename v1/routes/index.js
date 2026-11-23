@@ -5,13 +5,12 @@ const controller = require("../controllers/index");
 
 const router = express.Router();
 
-//* Making a function to ensure that the user has already login
+// Pages for logged-in users. Visitors are sent to the login page, and the page they
+// wanted (for example an invite link) is remembered so they come back to it after.
 function loggedIn(req, res, next) {
-  if (req.user) {
-      next();
-  } else {
-      res.redirect('/login');
-  }
+  if (req.user) return next();
+  if (req.method === "GET" && /^\/(room\/|home)/.test(req.originalUrl)) req.session.returnTo = req.originalUrl;
+  res.redirect('/login');
 }
 
 // Brute-force protection: 10 failed logins per IP every 15 minutes. Successful
@@ -59,9 +58,11 @@ router.post("/login", loginLimiter, (req, res, next) => {
     if (!user) {
       return res.status(401).render('login', { title: "Login", error: "Incorrect username or password" });
     }
+    // Read it before logging in: req.login starts a new session.
+    const returnTo = req.session.returnTo;
     req.login(user, (loginErr) => {
       if (loginErr) return next(loginErr);
-      res.redirect("/home");
+      res.redirect(controller.afterLogin(returnTo));
     });
   })(req, res, next);
 });
@@ -82,7 +83,8 @@ router.get('/home/join', loggedIn, controller.join_get);
 
 router.post('/home/join', loggedIn, controller.join_post);
 
-router.get('/home/room/:id', loggedIn, controller.room_get)
+// A private room, opened with its invite link.
+router.get('/room/:token', loggedIn, controller.room_get)
 
 router.get('/ice-servers', loggedIn, controller.ice_servers_get)
 
