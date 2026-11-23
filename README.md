@@ -184,6 +184,25 @@ room's invite link (the **Copy invite link** button in the room).
 > from another device, deploy the app with HTTPS (Render, Railway, Fly.io...)
 > and set `NODE_ENV=production`.
 
+### Deploy (Render)
+
+The repo has a [Render Blueprint](https://render.com/docs/blueprint-spec)
+([`render.yaml`](render.yaml)) for a free web service with HTTPS. Render deploys
+every commit to `main` once GitHub Actions has passed for it, and checks
+`/healthz` (200 while the database is connected) to know the app is up.
+
+1. In MongoDB Atlas, open **Security → Network Access** and allow `0.0.0.0/0`.
+   Render's free plan has no fixed IP address; the database password still protects it.
+2. In Render, choose **New → Blueprint**, connect this GitHub repository and apply it.
+3. Render asks for the secrets: `MONGODB_URI` (the `mongodb+srv://` string from
+   Atlas, with the database name, for example `/videochat`), and `XIRSYS_IDENT`,
+   `XIRSYS_SECRET` and `XIRSYS_CHANNEL`. It generates `SESSION_SECRET` by itself.
+4. Open the `https://….onrender.com` address when the deploy finishes.
+
+The service runs next to the Atlas cluster (region `virginia`). On the free plan
+it sleeps after 15 minutes without visits; the next visit takes about a minute to
+wake it up.
+
 ### Troubleshooting
 
 **`MongoDB Error Connection: querySrv ECONNREFUSED _mongodb._tcp...`**
