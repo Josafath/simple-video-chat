@@ -246,6 +246,15 @@ describe("invite links for people who aren't logged in", () => {
   });
 });
 
+describe("health check", () => {
+  it("answers 200 while the database is connected, without a login or a session", async () => {
+    const res = await get("/healthz");
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { status: "ok" });
+    assert.equal(res.headers.getSetCookie().length, 0, "no session cookie for health checks");
+  });
+});
+
 describe("security headers", () => {
   it("sends a Content Security Policy and the usual hardening headers", async () => {
     const res = await get("/login");

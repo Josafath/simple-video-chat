@@ -1,0 +1,37 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Creates the web service for the app in v1/. Secrets are not in this file: Render asks
+# for the values marked `sync: false` when the Blueprint is first applied.
+services:
+  - type: web
+    name: simple-video-chat
+    runtime: node
+    plan: free
+    # Same place as the MongoDB Atlas cluster (Ashburn, Virginia):
+    # every page talks to the database, so they should be close. Can't be changed later.
+    region: virginia
+    rootDir: v1
+    # Dev dependencies (test tools, an in-memory MongoDB) aren't needed to run the app.
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    # Deploy each commit to main, but only once GitHub Actions (tests, audit, the
+    # end-to-end call) has passed for it.
+    branch: main
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      # A random 256-bit value made by Render: signs the session cookies.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Asked for when the Blueprint is applied.
+      - key: MONGODB_URI
+        sync: false
+      - key: XIRSYS_IDENT
+        sync: false
+      - key: XIRSYS_SECRET
+        sync: false
+      - key: XIRSYS_CHANNEL
+        sync: false

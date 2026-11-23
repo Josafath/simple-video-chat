@@ -52,6 +52,14 @@ app.set("view engine", "ejs");
 // Behind a proxy (Render, Railway, Heroku...) this lets the secure cookie work.
 if (config.isProduction) app.set("trust proxy", 1);
 
+// Health check for the hosting provider (Render calls it to know the app is up).
+// Before the session and logging middleware, so it stays cheap and quiet.
+// 503 while MongoDB is unreachable: every page needs the database.
+app.get("/healthz", (req, res) => {
+  const databaseUp = mongoose.connection.readyState === 1;
+  res.status(databaseUp ? 200 : 503).json({ status: databaseUp ? "ok" : "database unavailable" });
+});
+
 // Security headers. The Content Security Policy only allows what the pages use:
 // our own files, the emoji picker from jsDelivr, the error page's Giphy embed and
 // the WebSocket of Socket.IO. Inline styles stay allowed because the emoji picker
