@@ -1,6 +1,7 @@
 # Study Partner — simple video chat
 
 [![CI](https://github.com/Josafath/simple-video-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/Josafath/simple-video-chat/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-2d6cdf)](https://simple-video-chat-rpq1.onrender.com)
 
 <p align="center">
   <img width="460" height="300" src="https://user-images.githubusercontent.com/29525443/130464057-8c7ec676-fae3-4532-b477-2420e25c977d.png">
@@ -11,6 +12,21 @@ room, send its invite link to your partner, and talk face to face with video, au
 chat. The video goes directly between the two browsers with **WebRTC**. The
 server only introduces the two browsers to each other (the *signaling*) with
 **Socket.IO**.
+
+## Live demo
+
+**👉 [simple-video-chat-rpq1.onrender.com](https://simple-video-chat-rpq1.onrender.com)**
+
+> It runs on Render's free plan, which sleeps after 15 minutes without visits.
+> If the page takes a while to load, it's waking up: give it about a minute.
+
+To try a call on your own:
+
+1. Sign up and create a room.
+2. Click **Copy invite link**.
+3. Open the link in a private window (or on your phone), sign up with a second
+   account, and you're in the call. Allow the camera and microphone when the
+   browser asks.
 
 | Version | Folder | What it is |
 |---|---|---|
