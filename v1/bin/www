@@ -4,11 +4,10 @@
  * Module dependencies.
  */
 
-const http = require('http');
 const mongoose = require('mongoose');
 const config = require('../config');
-const { app, sessionMiddleware } = require('../app');
-const setupSockets = require('../sockets');
+const { app } = require('../app');
+const { createServer } = require('../server');
 
 /**
  * Get port from environment and store in Express.
@@ -21,8 +20,7 @@ app.set('port', port);
  * Create HTTP server and the Socket.IO signaling server (see sockets.js).
  */
 
-const server = http.createServer(app);
-setupSockets(server, sessionMiddleware);
+const { server } = createServer();
 
 server.on('error', onError);
 server.on('listening', onListening);

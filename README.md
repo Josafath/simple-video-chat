@@ -1,5 +1,7 @@
 # Study Partner — simple video chat
 
+[![CI](https://github.com/Josafath/simple-video-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/Josafath/simple-video-chat/actions/workflows/ci.yml)
+
 <p align="center">
   <img width="460" height="300" src="https://user-images.githubusercontent.com/29525443/130464057-8c7ec676-fae3-4532-b477-2420e25c977d.png">
 </p>
@@ -76,6 +78,7 @@ sequenceDiagram
 ```
 v1/
 ├── bin/www            # Starts the HTTP server after connecting to MongoDB
+├── server.js          # Creates the HTTP server with Socket.IO (used by bin/www and the tests)
 ├── app.js             # Express app: sessions, Passport, routes, errors
 ├── config.js          # Reads the environment variables (.env)
 ├── sockets.js         # Socket.IO signaling server (rooms, offer/answer, chat)
@@ -83,8 +86,41 @@ v1/
 ├── routes/            # URLs and which ones need a logged-in user
 ├── models/            # Mongoose models: Users and Rooms
 ├── views/             # EJS templates
-└── public/            # Browser code (javascripts/main.js = WebRTC + chat) and styles
+├── public/            # Browser code (javascripts/main.js = WebRTC + chat) and styles
+├── test/              # Integration tests: signaling, pages, security, rate limits
+└── e2e/               # End-to-end: a real WebRTC call between two Chrome sessions
 ```
+
+## Tests
+
+```bash
+cd v1
+npm test           # signaling, pages, sessions, security headers, rate limits
+npm run test:e2e   # a real call between two headless Chrome sessions
+```
+
+The tests need nothing from your `.env`: they start the app on a free port with a
+real MongoDB in memory ([mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server))
+and never contact MongoDB Atlas or Xirsys.
+
+- **`npm test`** covers the signaling server (rooms, relaying only inside a room,
+  chat limits, hang-up, held seats, rejoining and the grace period), sign-up and
+  login rules, sessions stored in MongoDB, rooms, HTML escaping, logout, security
+  headers and the brute-force limits.
+- **`npm run test:e2e`** opens two browser sessions in the installed Google Chrome
+  (set `CHROME_PATH` to use another one) with a synthetic camera and microphone, and
+  checks that the call connects with video both ways, that chat messages arrive as
+  text, that a dropped signaling connection doesn't end the call, and that hanging
+  up tells the partner at once.
+
+The first run downloads the MongoDB binary (about 120 MB on Linux and macOS, 780 MB
+on Windows) and keeps it in `~/.cache/mongodb-binaries`. On a slow connection you can
+download it yourself from [mongodb.com](https://www.mongodb.com/try/download/community)
+and point the tests at its `mongod` with `MONGOMS_SYSTEM_BINARY=/path/to/mongod`.
+
+GitHub Actions runs `npm test` on Node 20, 22 and 24, `npm audit`, and the
+end-to-end test on every push to `main` and every pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Installation
 
@@ -208,7 +244,6 @@ the problems that v1 fixes:
 - Held seats and the login/sign-up limits are kept in the server's memory: fine for one server, but several servers would need a shared store (for example Redis) and the Socket.IO Redis adapter.
 - After a server restart the call starts again (a short pause in the video), because held seats don't survive the restart.
 - No CSRF tokens. The `sameSite=lax` cookie blocks the usual cross-site form posts.
-- No automated tests in the repo yet.
 
 ## Technologies
 

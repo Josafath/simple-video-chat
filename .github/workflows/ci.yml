@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: v1
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest version package.json allows, and the current ones.
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: v1/package-lock.json
+
+      # The tests run a real MongoDB in memory (mongodb-memory-server). Its binary is
+      # downloaded once by `npm ci` and reused from this cache afterwards.
+      - name: Cache the MongoDB binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('v1/package-lock.json') }}
+
+      - run: npm ci
+
+      - name: Check dependencies for known vulnerabilities
+        run: npm audit --omit=dev
+
+      - name: Signaling, pages and security tests
+        run: npm test
+
+  e2e:
+    name: End-to-end call (Chrome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v1/package-lock.json
+
+      - name: Cache the MongoDB binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('v1/package-lock.json') }}
+
+      - run: npm ci
+
+      # Uses the Google Chrome that GitHub's Ubuntu runners already have installed.
+      - name: Two browsers in a real WebRTC call
+        run: npm run test:e2e

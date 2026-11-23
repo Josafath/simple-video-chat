@@ -1,12 +1,16 @@
 const path = require("path");
 
 // Load variables from v1/.env when the file exists. Node >= 20.12 can do this
-// on its own, so the dotenv package is no longer needed.
-try {
-  process.loadEnvFile(path.join(__dirname, ".env"));
-} catch (err) {
-  // A missing .env is fine: the variables may come from the hosting provider.
-  if (err.code !== "ENOENT") throw err;
+// on its own, so the dotenv package is no longer needed. Tests set their own
+// variables, and a developer's .env (real database, real TURN account) must never
+// leak into them.
+if (process.env.NODE_ENV !== "test") {
+  try {
+    process.loadEnvFile(path.join(__dirname, ".env"));
+  } catch (err) {
+    // A missing .env is fine: the variables may come from the hosting provider.
+    if (err.code !== "ENOENT") throw err;
+  }
 }
 
 // Stops the app with a clear message instead of failing later in a strange way.

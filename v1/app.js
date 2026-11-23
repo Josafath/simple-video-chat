@@ -77,7 +77,8 @@ app.use(helmet({
   strictTransportSecurity: config.isProduction,
 }));
 
-app.use(logger("dev"));
+// Request log, except in the tests where it would bury the results.
+if (process.env.NODE_ENV !== "test") app.use(logger("dev"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
