@@ -10,41 +10,37 @@
 </head>
 <body data-room-id="<%= room.token %>">
 
-        <div class="room-info">
-            <p>Room: <strong><%= room.name %></strong></p>
-            <p id="call-status" role="status"></p>
-            <div class="invite">
-                <label for="invite-link">Invite link</label>
-                <input id="invite-link" type="text" value="<%= inviteUrl %>" readonly>
-                <button type="button" id="copy-invite">Copy invite link</button>
-            </div>
+    <!-- Three rows that always fit the screen: room info, the video, the controls. -->
+    <header class="room-info">
+        <p class="room-name">Room: <strong><%= room.name %></strong></p>
+        <p id="call-status" role="status"></p>
+        <div class="invite">
+            <label for="invite-link">Invite link</label>
+            <input id="invite-link" type="text" value="<%= inviteUrl %>" readonly>
+            <button type="button" id="copy-invite">Copy invite link</button>
         </div>
+    </header>
 
-        <div class="video-chat-container">
-            <video autoplay class="remote-video" id="remote-video" playsinline></video>
-            <!-- muted: without it you hear your own microphone back -->
-            <video autoplay muted class="local-video" id="local-video" playsinline></video>
-        </div>
+    <main class="video-chat-container">
+        <!-- The partner fills the space; your own camera is a small picture in the corner. -->
+        <video autoplay class="remote-video" id="remote-video" playsinline aria-label="Your partner's video"></video>
+        <!-- muted: without it you hear your own microphone back -->
+        <video autoplay muted class="local-video" id="local-video" playsinline aria-label="Your camera"></video>
+    </main>
 
-        <button id="hangup">
-            <p class="material-icons"> Hangup </p>
-        </button>
+    <nav class="controls" aria-label="Call controls">
+        <button id="hangup" type="button">Hang up</button>
+        <button class="chat-btn" type="button" aria-controls="chat-panel" aria-expanded="false">Chat</button>
+    </nav>
 
-        <section>
+    <section class="chat-popup" id="chat-panel" aria-label="Chat">
+        <div class="chat-area" aria-live="polite"></div>
 
-            <button class="chat-btn">
-                <p class="material-icons"> Chat </p>
-            </button>
-
-        <div class="chat-popup">
-            <div class="chat-area"></div>
-
-            <form class="input-area" autocomplete="off">
-                <input type="text" id="input" maxlength="500" aria-label="Message">
-                <button type="button" id="emoji-btn"> &#127773;</button>
-                <button type="submit" class="submit"> <p class="material-icons"> send</p></button>
-            </form>
-        </div>
+        <form class="input-area" autocomplete="off">
+            <input type="text" id="input" maxlength="500" aria-label="Message">
+            <button type="button" id="emoji-btn" aria-label="Insert an emoji">&#127773;</button>
+            <button type="submit" class="submit">Send</button>
+        </form>
     </section>
 
 

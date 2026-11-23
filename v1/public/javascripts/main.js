@@ -53,9 +53,16 @@ if (window.EmojiButton) {
   emojiBtn.hidden = true;
 }
 
-//   chat button toggler
+// The chat panel opens and closes from the Chat button; aria-expanded tells screen
+// readers (and the button's style) whether it is open.
+function setChatOpen(open) {
+  popup.classList.toggle('show', open);
+  chatBtn.setAttribute('aria-expanded', String(open));
+  if (open) input.focus();
+}
+
 chatBtn.addEventListener('click', () => {
-  popup.classList.toggle('show');
+  setChatOpen(!popup.classList.contains('show'));
 });
 
 // The input is inside a form now, so Enter also sends the message.
@@ -81,8 +88,9 @@ socket.on('chat message', (msg) => {
   row.append(author, bubble);
   chatArea.append(row);
   chatArea.scrollTop = chatArea.scrollHeight;
-  // Open the chat when the other person writes.
+  // Open the chat when the other person writes (without moving the focus there).
   popup.classList.add('show');
+  chatBtn.setAttribute('aria-expanded', 'true');
 });
 
 // * ---------------- Invite link ----------------

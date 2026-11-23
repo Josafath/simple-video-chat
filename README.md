@@ -113,8 +113,9 @@ and never contact MongoDB Atlas or Xirsys.
 - **`npm run test:e2e`** opens two browser sessions in the installed Google Chrome
   (set `CHROME_PATH` to use another one) with a synthetic camera and microphone, and
   checks that the call connects with video both ways, that chat messages arrive as
-  text, that a dropped signaling connection doesn't end the call, and that hanging
-  up tells the partner at once.
+  text, that a dropped signaling connection doesn't end the call, that hanging
+  up tells the partner at once, and that on a phone (upright and sideways) nothing
+  in the room page overlaps or leaves the screen, with the chat open or closed.
 
 The first run downloads the MongoDB binary (about 120 MB on Linux and macOS, 780 MB
 on Windows) and keeps it in `~/.cache/mongodb-binaries`. On a slow connection you can

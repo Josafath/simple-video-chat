@@ -1,244 +1,83 @@
-button{
-    border:none;
-    outline: none;
+/*
+ * Room page. Three rows that always fit the screen, from a phone to a desktop:
+ *   header   room name, call status and invite link
+ *   main     the partner's video, with your camera as a small picture in the corner
+ *   nav      call controls (hang up, chat), side by side
+ * The chat opens as a panel on the right on wide screens, and as a sheet from the
+ * bottom on phones. Nothing is positioned by fixed pixel sizes, so nothing overlaps.
+ */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #e5e5e5;
+    --stage: #1f2024;
+    --text: #222;
+    --muted: #555;
+    --blue: #2d6cdf;
+    --red: #d93025;
+    --controls-height: 4.5rem;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--text);
+    background-color: var(--bg);
+    display: flex;
+    flex-direction: column;
+    /* dvh: the visible height on phones, without the browser's address bar */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+button {
+    border: none;
+    font: inherit;
     cursor: pointer;
 }
 
-body{
-    font-family: Arial, Helvetica, sans-serif;
-    background-color: #e5e5e5;
-    display: flex;
-    justify-content: center;
-    height: 100vh;
-    width: 100%;
-    position:fixed;
+button:focus-visible,
+input:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 2px;
 }
 
-section{
-    max-width: 1100px;
-    margin: auto;
+/* ---------- Header: room, status, invite link ---------- */
+
+.room-info {
+    flex: none;
+    padding: 0.75rem 1rem 0.5rem;
     text-align: center;
-    padding: 0 1rem;
-}
-h1{
-    font-size: 3rem;
-    margin-bottom: 2rem;
 }
 
-
-p{
-    font-size: 14px;
+.room-info p {
+    margin: 0;
+    font-size: 0.95rem;
 }
 
-#hangup {
-    position: absolute;
-    top: 80%;
-    text-align: center;
-    background: #e92121;
-    color: white;
-    width:60px;
-    height: 60px;
-    border-radius: 50%;
-    opacity: 0.8;
-    transition: opacity 0.3s;
-    box-shadow: 0 5px 5px rgba(0,0,0,0.4);
-}
-.chat-btn{
-    position: fixed;
-    right:50px;
-    bottom: 50px;
-    background: dodgerblue;
-    color: white;
-    width:60px;
-    height: 60px;
-    border-radius: 50%;
-    opacity: 0.8;
-    transition: opacity 0.3s;
-    box-shadow: 0 5px 5px rgba(0,0,0,0.4);
+#call-status {
+    margin-top: 0.25rem;
+    color: var(--muted);
 }
 
-.chat-btn:hover, .submit:hover, #emoji-btn:hover{
-    opacity: 1;
-}
-
-.chat-popup{
+/* During the call there is no message: give that line to the video. */
+#call-status:empty {
     display: none;
-    position: fixed;
-    bottom:80px;
-    right:120px;
-    height: 400px;
-    width: 300px;
-    background-color: white;
-    /* display: flex; */
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 0.75rem;
-    box-shadow: 5px 5px 5px rgba(0,0,0,0.4);
-    border-radius: 10px;
-}
-
-.show{
-    display: flex;
-}
-
-.chat-area{
-    height: 80%;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.income-msg{
-    display: flex;
-    align-items: center;
-}
-
-
-
-.income-msg .msg{
-    background-color: dodgerblue;
-    color: white;
-    padding:0.7rem;
-    border-radius: 25px;
-    margin-left: 1rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-}
-
-
-
-/* Messages sent by me, on the right side */
-.out-msg{
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.income-msg{
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.out-msg .msg{
-    background-color: #e5e5e5;
-    color: #222;
-    padding:0.7rem;
-    border-radius: 25px;
-    margin-right: 1rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
-    word-break: break-word;
-}
-
-.income-msg .msg{
-    word-break: break-word;
-}
-
-.author{
-    font-size: 12px;
-    color: #666;
-    margin: 0.5rem 1rem 0;
-}
-
-.room-info{
-    position: absolute;
-    top: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    z-index: 1;
-}
-
-#call-status{
-    color: #555;
-}
-
-.input-area{
-    position: relative;
-    display: flex;
-    justify-content: center;
-}
-
-input[type="text"]{
-    width:100%;
-    border: 1px solid #ccc;
-    font-size: 1rem;
-    border-radius: 5px;
-    height: 2.2rem;
-}
-
-#emoji-btn{
-    position: absolute;
-    font-size: 1.2rem;
-    background: transparent;
-    right: 50px;
-    top:2px;
-    opacity:0.5;
-}
-
-.submit{
-    padding: 0.25rem 0.5rem;
-    margin-left: 0.5rem;
-    background-color: green;
-    color:white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 5px;
-    opacity: 0.7;
-}
-
-.video-chat-container {
-    width: 100%;
-    position: absolute;
-    display: flex;
-    justify-content: space-around;
-    flex-flow: row wrap;
-    left: 50%;
-    top: 50%;
-    -webkit-transform: translate(-50%, -50%);
-    transform: translate(-50%, -50%);
-}
-video.remote-video, video.local-video {
-    width: 500px;
-    height: 300px;
-    background-color: antiquewhite;
-    margin: 2em;
-}
-
-
-@media (max-width: 1000px){
-
-    p{
-        font-size: 2rem;
-    }
-
-    #hangup, .chat-btn {
-        width: 125px;
-        height: 125px;
-    }
-    input[type="text"] {
-        font-size: 2rem;
-        height: auto;
-    }
-    .submit {
-        padding: 0.1rem 2rem;
-    }
-    video.remote-video, video.local-video  {
-        width: 700px;
-        height: 400px
-    }
-
-    .chat-popup {
-        bottom: 120px;
-        right: 15%;
-        height: 80vw;
-        width: 70vw;
-    }
-    
 }
 
 /* Invite link: the only way into a private room. */
-.invite{
+.invite {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -248,20 +87,304 @@ video.remote-video, video.local-video {
     font-size: 0.9rem;
 }
 
-.invite input{
-    width: min(22rem, 70vw);
+.invite input {
+    width: min(22rem, 100%);
+    min-width: 0;
     padding: 0.35rem 0.5rem;
     border: 1px solid #bbb;
     border-radius: 5px;
     font: inherit;
 }
 
-.invite button{
-    padding: 0.35rem 0.75rem;
-    border: 0;
+.invite button {
+    padding: 0.4rem 0.75rem;
     border-radius: 5px;
-    background-color: #2d6cdf;
+    background-color: var(--blue);
     color: white;
-    font: inherit;
-    cursor: pointer;
+}
+
+/* ---------- Main: the videos ---------- */
+
+.video-chat-container {
+    position: relative;
+    flex: 1;
+    min-height: 0; /* lets the video shrink instead of pushing the controls off screen */
+    margin: 0 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: var(--stage);
+    /* cqw/cqh below are sizes relative to this box, so the corner picture scales with it */
+    container-type: size;
+}
+
+.remote-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* show the whole picture, never crop the partner */
+}
+
+.local-video {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    /* A quarter of the width, but never taller than 40% of the video area
+       (53cqh wide at 4:3 is 40cqh tall): matters on short, wide screens. */
+    width: min(24cqw, 14rem, 53cqh);
+    min-width: 4.5rem;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    background-color: #000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: scaleX(-1); /* a mirror, like every video call app */
+}
+
+/* ---------- Controls ---------- */
+
+.controls {
+    flex: none;
+    height: var(--controls-height);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: env(safe-area-inset-bottom); /* iPhone home bar */
+}
+
+#hangup,
+.chat-btn {
+    min-width: 7rem;
+    height: 3rem;
+    padding: 0 1.25rem;
+    border-radius: 999px;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: filter 0.15s;
+}
+
+#hangup {
+    background-color: var(--red);
+}
+
+.chat-btn {
+    background-color: var(--blue);
+}
+
+.chat-btn[aria-expanded="true"] {
+    background-color: #1b4aa3;
+}
+
+@media (hover: hover) {
+    #hangup:hover,
+    .chat-btn:hover,
+    .submit:hover,
+    .invite button:hover {
+        filter: brightness(1.1);
+    }
+}
+
+/* ---------- Chat ---------- */
+
+.chat-popup {
+    display: none;
+    position: fixed;
+    z-index: 10;
+    right: 1rem;
+    bottom: calc(var(--controls-height) + 0.5rem);
+    width: 20rem;
+    height: min(26rem, 60dvh);
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.show {
+    display: flex;
+}
+
+.chat-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.income-msg,
+.out-msg {
+    display: flex;
+    flex-direction: column;
+}
+
+.income-msg {
+    align-items: flex-start;
+}
+
+/* Messages sent by me, on the right side */
+.out-msg {
+    align-items: flex-end;
+}
+
+.msg {
+    max-width: 85%;
+    margin: 0.15rem 0.5rem 0.4rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    word-break: break-word;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.income-msg .msg {
+    background-color: dodgerblue;
+    color: white;
+}
+
+.out-msg .msg {
+    background-color: #e9e9e9;
+    color: var(--text);
+}
+
+.author {
+    margin: 0.4rem 0.75rem 0;
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.input-area {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+}
+
+#input {
+    flex: 1;
+    min-width: 0;
+    height: 2.4rem;
+    padding: 0 2.25rem 0 0.6rem; /* room for the emoji button inside the field */
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem; /* 16px: iPhones don't zoom into the field */
+}
+
+#emoji-btn {
+    position: absolute;
+    right: 4.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    font-size: 1.2rem;
+    opacity: 0.6;
+}
+
+#emoji-btn:hover {
+    opacity: 1;
+}
+
+.submit {
+    flex: none;
+    padding: 0 0.9rem;
+    border-radius: 6px;
+    background-color: green;
+    color: white;
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 640px) {
+    .room-info {
+        padding: 0.5rem 0.75rem 0.4rem;
+    }
+
+    .invite label {
+        /* still read by screen readers, but saves a line on a small screen */
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .invite input {
+        flex: 1;
+    }
+
+    .video-chat-container {
+        margin: 0 0.5rem;
+    }
+
+    .local-video {
+        /* 30cqh wide at 3:4 is 40cqh tall */
+        width: min(30cqw, 8rem, 30cqh);
+        aspect-ratio: 3 / 4; /* phone cameras are usually held upright */
+    }
+
+    #hangup,
+    .chat-btn {
+        min-width: 0;
+        flex: 1;
+        max-width: 10rem;
+    }
+
+    /* The chat becomes a sheet over the bottom of the screen, above the controls. */
+    .chat-popup {
+        left: 0.5rem;
+        right: 0.5rem;
+        width: auto;
+        height: 55dvh;
+    }
+}
+
+/* ---------- Short screens (a phone held sideways) ---------- */
+
+@media (max-height: 500px) {
+    :root {
+        --controls-height: 3.5rem;
+    }
+
+    /* Room name, status and invite link share one row to leave height for the video. */
+    .room-info {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.25rem 1rem;
+        padding: 0.4rem 0.75rem;
+    }
+
+    #call-status,
+    .invite {
+        margin-top: 0;
+    }
+
+    /* Field and button on one line; the label is still read by screen readers. */
+    .invite {
+        flex-wrap: nowrap;
+    }
+
+    .invite input {
+        width: 16rem;
+    }
+
+    .invite label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    #hangup,
+    .chat-btn {
+        height: 2.5rem;
+    }
+
+    .chat-popup {
+        height: calc(100dvh - var(--controls-height) - 1rem);
+    }
 }

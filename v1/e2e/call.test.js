@@ -47,8 +47,8 @@ after(async () => {
 });
 
 /** A browser session logged in with `cookie`, with synthetic media and an error log. */
-async function openSession(cookie) {
-  const context = await browser.newContext();
+async function openSession(cookie, contextOptions = {}) {
+  const context = await browser.newContext(contextOptions);
   const [name, value] = cookie.split("=");
   await context.addCookies([{ name, value, url: app.baseUrl }]);
   await context.addInitScript(syntheticMedia);
@@ -78,10 +78,10 @@ const waitForCall = (page) =>
   );
 
 let roomCount = 0;
-async function startCall() {
+async function startCall(contextOptions) {
   const roomId = await createRoom(app.baseUrl, anaCookie, `e2e-room-${++roomCount}`);
-  const ana = await openSession(anaCookie);
-  const ben = await openSession(benCookie);
+  const ana = await openSession(anaCookie, contextOptions);
+  const ben = await openSession(benCookie, contextOptions);
   await ana.goto(`${app.baseUrl}/room/${roomId}`);
   await ana.waitForFunction(() => /Waiting for your partner/.test(document.getElementById("call-status").textContent));
   await ben.goto(`${app.baseUrl}/room/${roomId}`);
@@ -132,4 +132,43 @@ describe("a call between two people", () => {
     await ana.context().close();
     await ben.context().close();
   });
+});
+
+describe("the room page on a phone", () => {
+  // A phone held upright and sideways. The room page used fixed pixel sizes before,
+  // so on phones the hang-up and chat buttons covered each other and the video.
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    it(`fits ${viewport.width}x${viewport.height} without anything overlapping`, async () => {
+      const { ana, ben } = await startCall({ viewport, isMobile: true, hasTouch: true });
+      const layout = () => ana.evaluate(() => {
+        const box = (sel) => { const b = document.querySelector(sel).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+        const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+        const inside = (a, b) => a.l >= b.l - 0.5 && a.r <= b.r + 0.5 && a.t >= b.t - 0.5 && a.b <= b.b + 0.5;
+        const screen = { l: 0, t: 0, r: innerWidth, b: innerHeight };
+        const parts = { header: box(".room-info"), video: box(".video-chat-container"), camera: box("#local-video"), hangUp: box("#hangup"), chat: box(".chat-btn"), controls: box(".controls") };
+        const problems = Object.entries(parts).filter(([, b]) => !inside(b, screen)).map(([name]) => name + " is off screen");
+        if (overlap(parts.hangUp, parts.chat)) problems.push("the hang-up and chat buttons overlap");
+        if (overlap(parts.controls, parts.video)) problems.push("the controls cover the video");
+        if (overlap(parts.header, parts.video)) problems.push("the header covers the video");
+        if (!inside(parts.camera, parts.video)) problems.push("your camera is outside the video area");
+        if (document.querySelector(".chat-popup").classList.contains("show")) {
+          const panel = box(".chat-popup");
+          if (!inside(panel, screen)) problems.push("the chat is off screen");
+          if (overlap(panel, parts.controls)) problems.push("the chat covers the controls");
+        }
+        if (document.documentElement.scrollWidth > innerWidth) problems.push("the page scrolls sideways");
+        return problems;
+      });
+
+      assert.deepEqual(await layout(), []);
+      assert.equal(await ana.getAttribute(".chat-btn", "aria-expanded"), "false");
+      await ana.click(".chat-btn");
+      assert.equal(await ana.getAttribute(".chat-btn", "aria-expanded"), "true");
+      assert.deepEqual(await layout(), [], "with the chat open");
+      await ana.click(".chat-btn");
+      assert.equal(await ana.getAttribute(".chat-btn", "aria-expanded"), "false");
+      await ana.context().close();
+      await ben.context().close();
+    });
+  }
 });
